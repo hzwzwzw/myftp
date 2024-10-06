@@ -8,7 +8,15 @@
 #include <memory.h>
 #include <stdio.h>
 
+#define MODE_transfer_undefined 0
+#define MODE_transfer_port 1
+#define MODE_transfer_pasv 2
+
 int sockfd_data;
+int mode_transfer = MODE_transfer_undefined;
+char savedir[256] = "/home/kirotta/Downloads";
+
+int port_listen;
 
 int main(int argc, char **argv)
 {
@@ -117,6 +125,44 @@ int main(int argc, char **argv)
 		sentence[len] = '\n';
 		sentence[len + 1] = '\0';
 
+		// if command is PORT
+		char command[4];
+		sscanf(sentence, "%s", command);
+		if (strcmp(command, "PORT") == 0)
+		{
+			int arg[6];
+			sscanf(sentence, "PORT %d,%d,%d,%d,%d,%d", &arg[0], &arg[1], &arg[2], &arg[3], &arg[4], &arg[5]);
+			int port = arg[4] * 256 + arg[5];
+			char ip[16];
+			sprintf(ip, "%d.%d.%d.%d", arg[0], arg[1], arg[2], arg[3]);
+			if ((port_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+			{
+				printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			struct sockaddr_in addr_data;
+			memset(&addr_data, 0, sizeof(addr_data));
+			addr_data.sin_family = AF_INET;
+			addr_data.sin_port = htons(port);
+			addr_data.sin_addr.s_addr = inet_addr(ip);
+			if (bind(port_listen, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
+			{
+				printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			if (listen(port_listen, 10) == -1)
+			{
+				printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			printf("PORT command successful.\r\n");
+			mode_transfer = MODE_transfer_port;
+		}
+		else if (strcmp(command, "PASV") == 0)
+		{
+			mode_transfer = MODE_transfer_pasv;
+		}
+
 		// 把键盘输入写入socket
 		p = 0;
 		while (p < len)
@@ -132,37 +178,49 @@ int main(int argc, char **argv)
 				p += n;
 			}
 		}
-		// if command is PORT
-		char command[4];
-		sscanf(sentence, "%s", command);
-		if (strcmp(command, "PORT") == 0)
+		if (strcmp(command, "RETR") == 0)
 		{
-			int arg[6];
-			sscanf(sentence, "PORT %d,%d,%d,%d,%d,%d", &arg[0], &arg[1], &arg[2], &arg[3], &arg[4], &arg[5]);
-			int port = arg[4] * 256 + arg[5];
-			char ip[16];
-			sprintf(ip, "%d.%d.%d.%d", arg[0], arg[1], arg[2], arg[3]);
-			if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+			if (mode_transfer == MODE_transfer_port)
 			{
-				printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+				if ((sockfd_data = accept(port_listen, NULL, NULL)) == -1)
+				{
+					printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+					return 1;
+				}
+			}
+			// get filename
+			char filename[256];
+			sscanf(sentence, "RETR %s", filename);
+			char path[256];
+			sprintf(path, "%s/%s", savedir, filename);
+			FILE *file = fopen(path, "wb+");
+			if (file == NULL)
+			{
+				printf("Error fopen(): %s(%d)\r\n", strerror(errno), errno);
 				return 1;
 			}
-			struct sockaddr_in addr_data;
-			memset(&addr_data, 0, sizeof(addr_data));
-			addr_data.sin_family = AF_INET;
-			addr_data.sin_port = htons(port);
-			addr_data.sin_addr.s_addr = inet_addr(ip);
-			if (bind(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
+			// read from data socket
+			while (1)
 			{
-				printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
-				return 1;
+				char buffer[8192];
+				int n = read(sockfd_data, buffer, 8192);
+				if (n < 0)
+				{
+					printf("Error read(): %s(%d)\r\n", strerror(errno), errno);
+					return 1;
+				}
+				else if (n == 0)
+				{
+					break;
+				}
+				else
+				{
+					fwrite(buffer, 1, n, file);
+				}
 			}
-			if (listen(sockfd_data, 10) == -1)
-			{
-				printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
-				return 1;
-			}
-			printf("PORT command successful.\r\n");
+			fclose(file);
+			close(sockfd_data);
+			printf("Transfer complete.\r\n");
 		}
 	}
 	close(sockfd);
