@@ -8,6 +8,8 @@
 #include <memory.h>
 #include <stdio.h>
 
+int sockfd_data;
+
 int main(int argc, char **argv)
 {
 	printf("*****************\n");
@@ -77,6 +79,38 @@ int main(int argc, char **argv)
 
 		printf("FROM SERVER: %s \r\n", sentence);
 
+		// if sentence is 227
+		if (sentence[0] == '2' && sentence[1] == '2' && sentence[2] == '7')
+		{
+			// create a new socket
+			if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+			{
+				printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			struct sockaddr_in addr_data;
+			memset(&addr_data, 0, sizeof(addr_data));
+			addr_data.sin_family = AF_INET;
+			char ip[16];
+			int port;
+			int temp[6];
+			sscanf(sentence, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)", &temp[0], &temp[1], &temp[2], &temp[3], &temp[4], &temp[5]);
+			sprintf(ip, "%d.%d.%d.%d", temp[0], temp[1], temp[2], temp[3]);
+			port = temp[4] * 256 + temp[5];
+			addr_data.sin_port = htons(port);
+			if (inet_pton(AF_INET, ip, &addr_data.sin_addr) <= 0)
+			{
+				printf("Error inet_pton(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			if (connect(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data)) < 0)
+			{
+				printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			printf("Connected to server data port %d\r\n", port);
+		}
+
 		// 获取键盘输入
 		fgets(sentence, 4096, stdin);
 		len = strlen(sentence);
@@ -97,6 +131,38 @@ int main(int argc, char **argv)
 			{
 				p += n;
 			}
+		}
+		// if command is PORT
+		char command[4];
+		sscanf(sentence, "%s", command);
+		if (strcmp(command, "PORT") == 0)
+		{
+			int arg[6];
+			sscanf(sentence, "PORT %d,%d,%d,%d,%d,%d", &arg[0], &arg[1], &arg[2], &arg[3], &arg[4], &arg[5]);
+			int port = arg[4] * 256 + arg[5];
+			char ip[16];
+			sprintf(ip, "%d.%d.%d.%d", arg[0], arg[1], arg[2], arg[3]);
+			if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+			{
+				printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			struct sockaddr_in addr_data;
+			memset(&addr_data, 0, sizeof(addr_data));
+			addr_data.sin_family = AF_INET;
+			addr_data.sin_port = htons(port);
+			addr_data.sin_addr.s_addr = inet_addr(ip);
+			if (bind(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
+			{
+				printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			if (listen(sockfd_data, 10) == -1)
+			{
+				printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			printf("PORT command successful.\r\n");
 		}
 	}
 	close(sockfd);

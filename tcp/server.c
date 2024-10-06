@@ -12,13 +12,21 @@
 #define STATUS_user_not_logged_in 0
 #define STATUS_user_need_password 1
 #define STATUS_user_logged_in 2
+#define MODE_transfer_undefined 0
+#define MODE_transfer_port 1
+#define MODE_transfer_pasv 2
 
 int status_user = STATUS_user_not_logged_in;
+int mode_transfer = MODE_transfer_undefined;
 char *user_name;
 char *user_email;
 
 int listenfd, connfd; // 监听socket和连接socket不一样，后者用于数据传输
 struct sockaddr_in addr;
+int datafd;
+
+char workdir[256] = "/home/ftp";
+char local_addr[15] = "172,24,153,139";
 
 int readMsg(int fd, char *sentence, int *len)
 {
@@ -115,13 +123,13 @@ int proc_USER(char *arguments)
 {
 	if (status_user != STATUS_user_not_logged_in)
 	{
-		writeMsg(connfd, "503 Bad sequence of commands.\n", 0);
+		writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
 	}
 	char next[256];
 	int len = arguments_break(arguments, next);
 	if (len != 0)
 	{
-		writeMsg(connfd, "501 Syntax error in parameters or arguments.\n", 0);
+		writeMsg(connfd, "501 Syntax error in parameters or arguments.\r\n", 0);
 	}
 	else
 	{
@@ -130,12 +138,12 @@ int proc_USER(char *arguments)
 			status_user = STATUS_user_need_password;
 			user_name = malloc(10 * sizeof(char));
 			strcpy(user_name, "anonymous");
-			writeMsg(connfd, "331 Guest login ok, send your complete e-mail address as password.\n", 0);
+			writeMsg(connfd, "331 Guest login ok, send your complete e-mail address as password.\r\n", 0);
 		}
 		else
 		{
 			// user not exist
-			writeMsg(connfd, "530 It is not a valid user.\n", 0);
+			writeMsg(connfd, "530 It is not a valid user.\r\n", 0);
 		}
 	}
 }
@@ -144,7 +152,7 @@ int proc_PASS(char *arguments)
 {
 	if (status_user != STATUS_user_need_password)
 	{
-		writeMsg(connfd, "503 Bad sequence of commands.\n", 0);
+		writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
 	}
 	else if (status_user == STATUS_user_need_password)
 	{
@@ -158,6 +166,70 @@ int proc_PASS(char *arguments)
 			writeMsg(connfd, welcome, 0);
 		}
 	}
+}
+
+int proc_PORT(char *argumemnts)
+{
+	mode_transfer = MODE_transfer_port;
+	int parameter[6];
+	sscanf(argumemnts, "%d,%d,%d,%d,%d,%d", &parameter[0], &parameter[1], &parameter[2], &parameter[3], &parameter[4], &parameter[5]);
+	char ip[16];
+	sprintf(ip, "%d.%d.%d.%d", parameter[0], parameter[1], parameter[2], parameter[3]);
+	int port = parameter[4] * 256 + parameter[5];
+
+	int sockfd_data;
+	if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+	{
+		printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+		return 1;
+	}
+	struct sockaddr_in addr_data;
+	memset(&addr_data, 0, sizeof(addr_data));
+	addr_data.sin_family = AF_INET;
+	addr_data.sin_port = htons(port);
+	if (inet_pton(AF_INET, ip, &addr_data.sin_addr) <= 0)
+	{
+		printf("Error inet_pton(): %s(%d)\r\n", strerror(errno), errno);
+		return 1;
+	}
+	if (connect(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data)) < 0)
+	{
+		printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+		return 1;
+	}
+	datafd = sockfd_data;
+	writeMsg(connfd, "200 PORT command successful.\r\n", 0);
+}
+
+int proc_PASV(char *arguments)
+{
+	mode_transfer = MODE_transfer_pasv;
+	int sockfd_data;
+	if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+	{
+		printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+		return 1;
+	}
+	struct sockaddr_in addr_data;
+	memset(&addr_data, 0, sizeof(addr_data));
+	addr_data.sin_family = AF_INET;
+	char msg[256];
+	for (int i = 20000; i < 65535; i++)
+	{
+		addr_data.sin_port = htons(i);
+		if (bind(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data)) == 0)
+		{
+			if (listen(sockfd_data, 10) == -1)
+			{
+				printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			sprintf(msg, "227 Entering Passive Mode (%s,%d,%d)\r\n", local_addr, i / 256, i % 256);
+			break;
+		}
+	}
+	datafd = sockfd_data;
+	writeMsg(connfd, msg, 0);
 }
 
 int main(int argc, char **argv)
@@ -206,7 +278,7 @@ int main(int argc, char **argv)
 			continue;
 		}
 
-		writeMsg(connfd, "220 ftp.ssast.org FTP server ready.\n", 0);
+		writeMsg(connfd, "220 ftp.ssast.org FTP server ready.\r\n", 0);
 
 		while (1) // 每次处理一条语句
 		{
@@ -237,10 +309,18 @@ int main(int argc, char **argv)
 			{
 				proc_PASS(argument);
 			}
+			else if (!strcmp(command, "PORT"))
+			{
+				proc_PORT(argument);
+			}
+			else if (!strcmp(command, "PASV"))
+			{
+				proc_PASV(argument);
+			}
 			else
 			{
 				printf("Unknown command: %s\r\n", command);
-				writeMsg(connfd, "500 Unknown command.\n", 0);
+				writeMsg(connfd, "500 Unknown command.\r\n", 0);
 			}
 		}
 
