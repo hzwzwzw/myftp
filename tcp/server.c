@@ -21,7 +21,7 @@ int mode_transfer = MODE_transfer_undefined;
 char *user_name;
 char *user_email;
 
-int listenfd, connfd; // ¼àÌısocketºÍÁ¬½Ósocket²»Ò»Ñù£¬ºóÕßÓÃÓÚÊı¾İ´«Êä
+int listenfd, connfd; // ç›‘å¬socketå’Œè¿æ¥socketä¸ä¸€æ ·ï¼Œåè€…ç”¨äºæ•°æ®ä¼ è¾“
 struct sockaddr_in addr;
 int data_listen;
 
@@ -32,7 +32,7 @@ struct sockaddr_in port_addr_data;
 
 int readMsg(int fd, char *sentence, int *len)
 {
-	// Õ¥¸Ésocket´«À´µÄÄÚÈİ
+	// æ¦¨å¹²socketä¼ æ¥çš„å†…å®¹
 	int p = 0;
 	while (1)
 	{
@@ -60,7 +60,7 @@ int readMsg(int fd, char *sentence, int *len)
 			}
 		}
 	}
-	// socket½ÓÊÕµ½µÄ×Ö·û´®²¢²»»áÌí¼Ó'\0'
+	// socketæ¥æ”¶åˆ°çš„å­—ç¬¦ä¸²å¹¶ä¸ä¼šæ·»åŠ '\0'
 	sentence[p - 1] = '\0';
 	if (len != NULL)
 		*len = p - 1;
@@ -70,7 +70,7 @@ int writeMsg(int fd, char *sentence, int len)
 {
 	if (len == 0)
 		len = strlen(sentence);
-	// ·¢ËÍ×Ö·û´®µ½socket
+	// å‘é€å­—ç¬¦ä¸²åˆ°socket
 	int p = 0;
 	while (p < len)
 	{
@@ -314,37 +314,37 @@ int main(int argc, char **argv)
 	int p;
 	int len;
 
-	// ´´½¨socket
+	// åˆ›å»ºsocket
 	if ((listenfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
 	{
 		printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
 		return 1;
 	}
 
-	// ÉèÖÃ±¾»úµÄipºÍport
+	// è®¾ç½®æœ¬æœºçš„ipå’Œport
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = 6789;
-	addr.sin_addr.s_addr = htonl(INADDR_ANY); // ¼àÌı"0.0.0.0"
+	addr.sin_addr.s_addr = htonl(INADDR_ANY); // ç›‘å¬"0.0.0.0"
 
-	// ½«±¾»úµÄipºÍportÓësocket°ó¶¨
+	// å°†æœ¬æœºçš„ipå’Œportä¸socketç»‘å®š
 	if (bind(listenfd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
 	{
 		printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
 		return 1;
 	}
 
-	// ¿ªÊ¼¼àÌısocket
+	// å¼€å§‹ç›‘å¬socket
 	if (listen(listenfd, 10) == -1)
 	{
 		printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
 		return 1;
 	}
 
-	// ³ÖĞø¼àÌıÁ¬½ÓÇëÇó
+	// æŒç»­ç›‘å¬è¿æ¥è¯·æ±‚
 	while (1)
 	{
-		// µÈ´ıclientµÄÁ¬½Ó -- ×èÈûº¯Êı
+		// ç­‰å¾…clientçš„è¿æ¥ -- é˜»å¡å‡½æ•°
 		if ((connfd = accept(listenfd, NULL, NULL)) == -1)
 		{
 			printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
@@ -353,10 +353,10 @@ int main(int argc, char **argv)
 
 		writeMsg(connfd, "220 ftp.ssast.org FTP server ready.\r\n", 0);
 
-		while (1) // Ã¿´Î´¦ÀíÒ»ÌõÓï¾ä
+		while (1) // æ¯æ¬¡å¤„ç†ä¸€æ¡è¯­å¥
 		{
 			readMsg(connfd, sentence, &len);
-			// TODO: ´¦ÀíÓï¾ä
+			// TODO: å¤„ç†è¯­å¥
 			printf("Received: %s\r\n", sentence);
 			char command[5];
 			char argument[256];
@@ -401,13 +401,13 @@ int main(int argc, char **argv)
 			}
 		}
 
-		// // ×Ö·û´®´¦Àí
+		// // å­—ç¬¦ä¸²å¤„ç†
 		// for (p = 0; p < len; p++)
 		// {
 		// 	sentence[p] = toupper(sentence[p]);
 		// }
 
-		// ·¢ËÍ×Ö·û´®µ½socket
+		// å‘é€å­—ç¬¦ä¸²åˆ°socket
 		// p = 0;
 		// while (p < len)
 		// {
