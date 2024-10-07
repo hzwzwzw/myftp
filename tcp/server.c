@@ -305,6 +305,76 @@ int proc_RETR(char *arguments)
 	close(datafd);
 }
 
+int proc_STOR(char *arguments)
+{
+	if (status_user != STATUS_user_logged_in)
+	{
+		writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+		return -1;
+	}
+	else if (mode_transfer == MODE_transfer_undefined)
+	{
+		writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
+		return -1;
+	}
+	int datafd;
+	if (mode_transfer == MODE_transfer_pasv)
+	{
+		// wait
+		if ((datafd = accept(data_listen, NULL, NULL)) == -1)
+		{
+			printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+	}
+	else if (mode_transfer == MODE_transfer_port)
+	{
+		if ((datafd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+		{
+			printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+		if (connect(datafd, (struct sockaddr *)&port_addr_data, sizeof(port_addr_data)) < 0)
+		{
+			printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+	}
+	mode_transfer = MODE_transfer_undefined; // clear mode
+	if (datafd == -1)
+	{
+		writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
+		return -1;
+	}
+	char filename[256];
+	sprintf(filename, "%s/%s", workdir, arguments);
+	FILE *filefp;
+	if ((filefp = fopen(filename, "w")) == NULL)
+	{
+		writeMsg(connfd, "550 Permission denied.\r\n", 0);
+		return -1;
+	}
+	char msg[256];
+	sprintf(msg, "150 Opening BINARY mode data connection for %s.\r\n", arguments);
+	writeMsg(connfd, msg, 0);
+	// receive file
+	char buffer[8192];
+	int n, size = 0;
+	while ((n = read(datafd, buffer, 8192)) > 0)
+	{
+		if (fwrite(buffer, 1, n, filefp) == -1)
+		{
+			printf("Error fwrite(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+		size += n;
+	}
+	sprintf(msg, "226 Transfer complete. %d bytes transmitted.\r\n", size);
+	writeMsg(connfd, msg, 0);
+	fclose(filefp);
+	close(datafd);
+}
+
 int main(int argc, char **argv)
 {
 	printf("*****************\n");
@@ -393,6 +463,10 @@ int main(int argc, char **argv)
 			else if (!strcmp(command, "RETR"))
 			{
 				proc_RETR(argument);
+			}
+			else if (!strcmp(command, "STOR"))
+			{
+				proc_STOR(argument);
 			}
 			else
 			{

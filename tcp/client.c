@@ -222,6 +222,50 @@ int main(int argc, char **argv)
 			close(sockfd_data);
 			printf("Transfer complete.\r\n");
 		}
+		else if (strcmp(command, "STOR") == 0)
+		{
+			if (mode_transfer == MODE_transfer_port)
+			{
+				if ((sockfd_data = accept(port_listen, NULL, NULL)) == -1)
+				{
+					printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+					return 1;
+				}
+			}
+			// get filename
+			char filename[256];
+			sscanf(sentence, "STOR %s", filename);
+			char path[256];
+			sprintf(path, "%s/%s", savedir, filename);
+			FILE *file = fopen(path, "rb");
+			if (file == NULL)
+			{
+				printf("Error fopen(): %s(%d)\r\n", strerror(errno), errno);
+				return 1;
+			}
+			// write to data socket
+			while (1)
+			{
+				char buffer[8192];
+				int n = fread(buffer, 1, 8192, file);
+				if (n < 0)
+				{
+					printf("Error fread(): %s(%d)\r\n", strerror(errno), errno);
+					return 1;
+				}
+				else if (n == 0)
+				{
+					break;
+				}
+				else
+				{
+					write(sockfd_data, buffer, n);
+				}
+			}
+			fclose(file);
+			close(sockfd_data);
+			printf("Transfer complete.\r\n");
+		}
 	}
 	close(sockfd);
 
