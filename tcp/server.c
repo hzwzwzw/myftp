@@ -421,83 +421,99 @@ int main(int argc, char **argv)
 			continue;
 		}
 
-		writeMsg(connfd, "220 ftp.ssast.org FTP server ready.\r\n", 0);
+		int proc = fork();
 
-		while (1) // 每次处理一条语句
+		if (proc != 0)
 		{
-			readMsg(connfd, sentence, &len);
-			// TODO: 处理语句
-			printf("Received: %s\r\n", sentence);
-			char command[5];
-			char argument[256];
-			strncpy(command, sentence, 4);
-			if (command[3] == ' ')
-			{
-				command[3] = '\0';
-				if (len > 4)
-					strncpy(argument, sentence + 4, len - 3);
-			}
-			else
-			{
-				command[4] = '\0';
-				if (len > 5)
-					strncpy(argument, sentence + 5, len - 4);
-			}
-			strip(argument, 0);
-			if (!strcmp(command, "USER"))
-			{
-				proc_USER(argument);
-			}
-			else if (!strcmp(command, "PASS"))
-			{
-				proc_PASS(argument);
-			}
-			else if (!strcmp(command, "PORT"))
-			{
-				proc_PORT(argument);
-			}
-			else if (!strcmp(command, "PASV"))
-			{
-				proc_PASV(argument);
-			}
-			else if (!strcmp(command, "RETR"))
-			{
-				proc_RETR(argument);
-			}
-			else if (!strcmp(command, "STOR"))
-			{
-				proc_STOR(argument);
-			}
-			else
-			{
-				printf("Unknown command: %s\r\n", command);
-				writeMsg(connfd, "500 Unknown command.\r\n", 0);
-			}
+			close(connfd);
+			continue;
 		}
+		else
+		{
 
-		// // 字符串处理
-		// for (p = 0; p < len; p++)
-		// {
-		// 	sentence[p] = toupper(sentence[p]);
-		// }
+			writeMsg(connfd, "220 ftp.ssast.org FTP server ready.\r\n", 0);
 
-		// 发送字符串到socket
-		// p = 0;
-		// while (p < len)
-		// {
-		// 	int n = write(connfd, sentence + p, len + 1 - p);
-		// 	if (n < 0)
-		// 	{
-		// 		printf("Error write(): %s(%d)\n", strerror(errno), errno);
-		// 		return 1;
-		// 	}
-		// 	else
-		// 	{
-		// 		p += n;
-		// 	}
-		// }
+			while (1) // 每次处理一条语句
+			{
+				readMsg(connfd, sentence, &len);
+				// TODO: 处理语句
+				printf("Received: %s\r\n", sentence);
+				char command[5];
+				char argument[256];
+				strncpy(command, sentence, 4);
+				if (command[3] == ' ')
+				{
+					command[3] = '\0';
+					if (len > 4)
+						strncpy(argument, sentence + 4, len - 3);
+				}
+				else
+				{
+					command[4] = '\0';
+					if (len > 5)
+						strncpy(argument, sentence + 5, len - 4);
+				}
+				strip(argument, 0);
+				if (!strcmp(command, "USER"))
+				{
+					proc_USER(argument);
+				}
+				else if (!strcmp(command, "PASS"))
+				{
+					proc_PASS(argument);
+				}
+				else if (!strcmp(command, "PORT"))
+				{
+					proc_PORT(argument);
+				}
+				else if (!strcmp(command, "PASV"))
+				{
+					proc_PASV(argument);
+				}
+				else if (!strcmp(command, "RETR"))
+				{
+					proc_RETR(argument);
+				}
+				else if (!strcmp(command, "STOR"))
+				{
+					proc_STOR(argument);
+				}
+				else if (!strcmp(command, "SYST"))
+				{
+					writeMsg(connfd, "215 UNIX Type: L8\r\n", 0);
+				}
+				else if (!strcmp(command, "TYPE"))
+				{
+					if (!strcmp(argument, "I"))
+						writeMsg(connfd, "200 Type set to I.\r\n", 0);
+					else
+						writeMsg(connfd, "504 Unknown parameter.\r\n", 0);
+				}
+				else if (!strcmp(command, "QUIT"))
+				{
+					writeMsg(connfd, "221 Goodbye.\r\n", 0);
+					if (data_listen != -1)
+						close(data_listen);
+					break;
+				}
+				else if (!strcmp(command, "ABOR"))
+				{
+					writeMsg(connfd, "226 Abort successful.\r\n", 0);
+					if (data_listen != -1)
+						close(data_listen);
+					break;
+				}
+				else
+				{
+					printf("Unknown command: %s\r\n", command);
+					writeMsg(connfd, "500 Unknown command.\r\n", 0);
+				}
+			}
 
-		close(connfd);
+			close(connfd);
+			close(listenfd);
+			exit(0);
+		}
 	}
 
 	close(listenfd);
