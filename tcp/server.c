@@ -41,7 +41,7 @@ int readMsg(int fd, char *sentence, int *len)
 		{
 			printf("Error read(): %s(%d)\r\n", strerror(errno), errno);
 			close(fd);
-			continue;
+			return -1;
 		}
 		else if (n == 0)
 		{
@@ -394,7 +394,7 @@ int main(int argc, char **argv)
 	// 设置本机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 6789;
+	addr.sin_port = 20;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
 
 	// 将本机的ip和port与socket绑定
@@ -435,7 +435,10 @@ int main(int argc, char **argv)
 
 			while (1) // 每次处理一条语句
 			{
-				readMsg(connfd, sentence, &len);
+				if (-1 == readMsg(connfd, sentence, &len))
+				{
+					break;
+				}
 				// TODO: 处理语句
 				printf("Received: %s\r\n", sentence);
 				char command[5];

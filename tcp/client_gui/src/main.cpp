@@ -1,13 +1,28 @@
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <unistd.h>
+#include <errno.h>
+
+#include <string.h>
+#include <memory.h>
+#include <stdio.h>
+
 #include <QApplication>
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
+#include <QTextEdit>
 #include <QLabel>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QTableWidget>
 #include <QHeaderView>
+
+void button_connect_clicked();
+int read_reply(char *str, int max_len);
 
 class FtpClientUI
 {
@@ -31,6 +46,7 @@ public:
         serverLayout->addWidget(serverPortInput);
         serverLayout->addWidget(connectButton);
         mainLayout->addLayout(serverLayout);
+        connectButton->connect(connectButton, &QPushButton::clicked, button_connect_clicked);
 
         // Username and password input
         loginLayout = new QHBoxLayout();
@@ -101,10 +117,13 @@ public:
         // Shell message display area
         shellLayout = new QVBoxLayout();
         shellLabel = new QLabel();
-        shellInput = new QLineEdit();
+        shellInput = new QTextEdit();
         shellLabel->setText("Shell Messages");
+        shellLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
         shellInput->setReadOnly(true);
-        shellInput->setSizePolicy(QSizePolicy::Policy::Fixed, QSizePolicy::Expanding);
+        shellInput->setAlignment(Qt::AlignTop);
+        shellInput->setWordWrapMode(QTextOption::WordWrap);
+        shellInput->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         shellLayout->addWidget(shellLabel);
         shellLayout->addWidget(shellInput);
 
@@ -152,7 +171,7 @@ public:
         return window;
     }
 
-private:
+public:
     QWidget *window;
     QHBoxLayout *windowLayout;
     QVBoxLayout *mainLayout;
@@ -187,15 +206,104 @@ private:
 
     QVBoxLayout *shellLayout;
     QLabel *shellLabel;
-    QLineEdit *shellInput;
+    QTextEdit *shellInput;
 };
+
+FtpClientUI *ui;
+
+class FtpState
+{
+public:
+    int sockfd;
+    struct sockaddr_in addr;
+};
+
+FtpState state;
+
+int connect_to_server(char *ip_addr, int port)
+{
+    // 创建socket
+    if ((state.sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    {
+        printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+        return 1;
+    }
+
+    // 设置目标主机的ip和port
+    memset(&state.addr, 0, sizeof(state.addr));
+    state.addr.sin_family = AF_INET;
+    state.addr.sin_port = port;
+    if (inet_pton(AF_INET, ip_addr, &state.addr.sin_addr) <= 0)
+    { // 转换ip地址:点分十进制-->二进制
+        printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
+        return 1;
+    }
+
+    // 连接上目标主机（将socket和目标主机连接）-- 阻塞函数
+    if (connect(state.sockfd, (struct sockaddr *)&state.addr, sizeof(state.addr)) < 0)
+    {
+        printf("Error connect(): %s(%d)\n", strerror(errno), errno);
+        return 1;
+    }
+    char buf[8192];
+    read_reply(buf, 8192);
+    return 0;
+}
+
+void button_connect_clicked()
+{
+    char *ip_addr = ui->serverAddrInput->text().toUtf8().data();
+    int port = ui->serverPortInput->text().toInt();
+    if (connect_to_server(ip_addr, port) != 0)
+    {
+        ui->shellInput->setText("Error connecting to server");
+    }
+}
+
+int read_reply(char *str, int max_len)
+{
+    if (state.sockfd == -1)
+    {
+        printf("Error read(): socket not connected\n");
+        return 1;
+    }
+    int p = 0;
+    while (1)
+    {
+        int n = read(state.sockfd, str + p, max_len - p);
+        if (n < 0)
+        {
+            printf("Error read(): %s(%d)\r\n", strerror(errno), errno); // read不保证一次读完，可能中途退出
+            return 1;
+        }
+        else if (n == 0)
+        {
+            break;
+        }
+        else
+        {
+            p += n;
+            while (str[p - 1] == 0)
+            {
+                p--;
+            }
+            if (str[p - 1] == '\n')
+            {
+                break;
+            }
+        }
+    }
+    str[p - 1] = 0;
+    printf("FROM SERVER: %s \r\n", str);
+    ui->shellInput->setText(ui->shellInput->toPlainText() + str);
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-
-    FtpClientUI ui;
-    ui.getWindow()->show();
+    ui = new FtpClientUI();
+    ui->getWindow()->show();
 
     return app.exec();
 }
