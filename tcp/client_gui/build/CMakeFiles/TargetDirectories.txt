@@ -1,0 +1,3 @@
+/home/kirotta/ftp/tcp/client_gui/build/CMakeFiles/client_gui.dir
+/home/kirotta/ftp/tcp/client_gui/build/CMakeFiles/edit_cache.dir
+/home/kirotta/ftp/tcp/client_gui/build/CMakeFiles/rebuild_cache.dir
