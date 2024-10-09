@@ -8,6 +8,7 @@
 #include <string.h>
 #include <memory.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #define STATUS_user_not_logged_in 0
 #define STATUS_user_need_password 1
@@ -413,9 +414,9 @@ int proc_PWD(char *arguments)
 	}
 	char msg[256];
 	if (strcmp(workdir, rootdir) == 0)
-		sprintf(msg, "257 current directory is %s.\r\n", "/");
+		sprintf(msg, "257 current directory is \"%s\".\r\n", "/");
 	else
-		sprintf(msg, "257 current directory is %s.\r\n", workdir + strlen(rootdir));
+		sprintf(msg, "257 current directory is \"%s\".\r\n", workdir + strlen(rootdir));
 	writeMsg(connfd, msg, 0);
 }
 int proc_CWD(char *arguments)
@@ -437,8 +438,16 @@ int proc_CWD(char *arguments)
 	}
 	else
 	{
-		strcpy(workdir, realdir);
-		writeMsg(connfd, "250 Directory successfully changed.\r\n", 0);
+		struct stat statbuf;
+		if (stat(realdir, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode))
+		{
+			writeMsg(connfd, "550 Not a directory.\r\n", 0);
+		}
+		else
+		{
+			strcpy(workdir, realdir);
+			writeMsg(connfd, "250 Directory successfully changed.\r\n", 0);
+		}
 	}
 }
 int proc_MKD(char *arguments)

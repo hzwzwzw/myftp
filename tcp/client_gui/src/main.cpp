@@ -9,6 +9,8 @@
 #include <memory.h>
 #include <stdio.h>
 
+#include <sys/stat.h>
+
 #include "ftpclientui.h"
 
 #include <QRegularExpression>
@@ -39,6 +41,64 @@ char local_dir[256];
 FtpState state;
 
 void list_server();
+void list_local();
+
+void cwd_server()
+{
+    char path[256];
+    strcpy(path, ui->serverPathInput->text().toUtf8().data());
+    char buf[256];
+    sprintf(buf, "CWD %s\r\n", path);
+    write(state.sockfd, buf, strlen(buf));
+    read_reply(buf, 256);
+    list_server();
+    // use PWD to get current directory
+    write(state.sockfd, "PWD\r\n", 5);
+    read_reply(buf, 256);
+    if (strncmp(buf, "257", 3) == 0)
+    {
+        char *dir;
+        dir = strstr(buf, "\"") + 1;
+        dir[strstr(dir, "\"") - dir] = 0;
+        // ascii to utf-8
+        printf("Current directory: %s\r\n", dir);
+        ui->serverPathInput->setText(dir);
+        strcpy(state.dir, dir);
+    }
+}
+
+void cwd_local()
+{
+    char path[256];
+    strcpy(path, ui->clientPathInput->text().toUtf8().data());
+    char tmp[256];
+    if (path[0] == '/')
+        strcpy(tmp, path);
+    else
+        sprintf(tmp, "%s/%s", local_dir, path);
+
+    char real[256];
+    if (realpath(tmp, real) == NULL)
+    {
+        printf("Error realpath(): %s(%d)\r\n", strerror(errno), errno);
+        return;
+    }
+    // check if it exits and is a directory
+    struct stat st;
+    if (stat(real, &st) == -1)
+    {
+        printf("Error stat(): %s(%d)\r\n", strerror(errno), errno);
+        return;
+    }
+    if (!S_ISDIR(st.st_mode))
+    {
+        printf("Error: not a directory\r\n");
+        return;
+    }
+    strcpy(local_dir, real);
+    ui->clientPathInput->setText(local_dir);
+    list_local();
+}
 
 int connect_to_server(char *ip_addr, int port)
 {
@@ -99,6 +159,32 @@ void button_login_clicked()
         read_reply(buf, 8192);
     }
     list_server();
+}
+
+void button_server_enter_clicked()
+{
+    cwd_server();
+}
+
+void button_server_parent_clicked()
+{
+    char path[256];
+    sprintf(path, "%s/..", state.dir);
+    ui->serverPathInput->setText(path);
+    cwd_server();
+}
+
+void button_client_enter_clicked()
+{
+    cwd_local();
+}
+
+void button_client_parent_clicked()
+{
+    char path[256];
+    sprintf(path, "%s/..", local_dir);
+    ui->clientPathInput->setText(path);
+    cwd_local();
 }
 
 void port_checked()
@@ -252,6 +338,7 @@ void list_server()
     if (strncmp(buf, "150", 3) == 0)
     {
         ui->serverFileTable->clear();
+        ui->serverFileTable->setRowCount(0);
         char buffer[8192];
         QString qs = "";
         while (1)
@@ -303,6 +390,46 @@ void list_server()
 
 void list_local()
 {
+    char command[256];
+    sprintf(command, "ls -l %s", local_dir);
+    FILE *fp = popen(command, "r");
+    if (fp == NULL)
+    {
+        printf("Error popen(): %s(%d)\r\n", strerror(errno), errno);
+        return;
+    }
+    ui->clientFileTable->clear();
+    ui->clientFileTable->setRowCount(0);
+    char buffer[8192];
+    QString qs = "";
+    while (fgets(buffer, 8192, fp) != NULL)
+    {
+        qs.append(buffer);
+    }
+    pclose(fp);
+    QStringList lines = qs.split("\n");
+    for (const QString &line : lines)
+    {
+        if (!line.isEmpty())
+        {
+            if (line.indexOf("total") == 0)
+                continue;
+
+            QStringList parts = line.split(QRegularExpression("\\s+"));
+
+            ui->clientFileTable->insertRow(ui->clientFileTable->rowCount());
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 0, new QTableWidgetItem(parts[8]));
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 1, new QTableWidgetItem(parts[4]));
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 2, new QTableWidgetItem(parts[5] + " " + parts[6] + " " + parts[7]));
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 3, new QTableWidgetItem(parts[0]));
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 4, new QTableWidgetItem(parts[1]));
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 5, new QTableWidgetItem(parts[2]));
+            ui->clientFileTable->setItem(ui->clientFileTable->rowCount() - 1, 6, new QTableWidgetItem(parts[3]));
+
+            QStringList title = {"Name", "Size", "Time", "Permission", "Type", "Owner", "Group"};
+            ui->clientFileTable->setHorizontalHeaderLabels(title);
+        }
+    }
 }
 
 int read_reply(char *str, int max_len)
@@ -354,5 +481,6 @@ int main(int argc, char *argv[])
     strcpy(home, getenv("HOME"));
     sprintf(local_dir, "%s/Downloads", home);
     ui->clientPathInput->setText(local_dir);
+    list_local();
     return app.exec();
 }
