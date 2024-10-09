@@ -43,6 +43,9 @@ FtpState state;
 void list_server();
 void list_local();
 
+void set_data_socket();
+void connect_to_data_socket();
+
 void cwd_server()
 {
     char path[256];
@@ -130,6 +133,92 @@ int connect_to_server(char *ip_addr, int port)
     return 0;
 }
 
+void download()
+{
+    set_data_socket();
+    QString filename = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 0)->text();
+    char buf[256];
+    sprintf(buf, "RETR %s\r\n", filename.toUtf8().data());
+    write(state.sockfd, buf, strlen(buf));
+    connect_to_data_socket();
+    read_reply(buf, 256);
+    char path[256];
+    sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
+    FILE *file = fopen(path, "wb+");
+    if (file == NULL)
+    {
+        printf("Error fopen(): %s(%d)\r\n", strerror(errno), errno);
+        return;
+    }
+    while (1)
+    {
+        char buffer[8192];
+        memset(buffer, 0, 8192);
+        int n = read(state.sockfd_data, buffer, 8192);
+        if (n < 0)
+        {
+            printf("Error read(): %s(%d)\r\n", strerror(errno), errno);
+            return;
+        }
+        else if (n == 0)
+        {
+            break;
+        }
+        else
+        {
+            fwrite(buffer, 1, n, file);
+        }
+    }
+    fclose(file);
+    close(state.sockfd_data);
+    read_reply(buf, 256);
+    printf("Transfer complete.\r\n");
+    cwd_local();
+}
+
+void upload()
+{
+    set_data_socket();
+    QString filename = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 0)->text();
+    char buf[256];
+    sprintf(buf, "STOR %s\r\n", filename.toUtf8().data());
+    write(state.sockfd, buf, strlen(buf));
+    connect_to_data_socket();
+    read_reply(buf, 256);
+    char path[256];
+    sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
+    FILE *file = fopen(path, "rb");
+    if (file == NULL)
+    {
+        printf("Error fopen(): %s(%d)\r\n", strerror(errno), errno);
+        return;
+    }
+    while (1)
+    {
+        char buffer[8192];
+        memset(buffer, 0, 8192);
+        int n = fread(buffer, 1, 8192, file);
+        if (n < 0)
+        {
+            printf("Error fread(): %s(%d)\r\n", strerror(errno), errno);
+            return;
+        }
+        else if (n == 0)
+        {
+            break;
+        }
+        else
+        {
+            write(state.sockfd_data, buffer, n);
+        }
+    }
+    fclose(file);
+    close(state.sockfd_data);
+    read_reply(buf, 256);
+    printf("Transfer complete.\r\n");
+    cwd_server();
+}
+
 void button_connect_clicked()
 {
     char *ip_addr = ui->serverAddrInput->text().toUtf8().data();
@@ -185,6 +274,48 @@ void button_client_parent_clicked()
     sprintf(path, "%s/..", local_dir);
     ui->clientPathInput->setText(path);
     cwd_local();
+}
+
+void button_server_doubleclicked(int row, int column)
+{
+    QString filename = ui->serverFileTable->item(row, 0)->text();
+    if (ui->serverFileTable->item(row, 3)->text()[0] == 'd')
+    {
+        char tmp[256];
+        sprintf(tmp, "%s/%s", state.dir, filename.toUtf8().data());
+        ui->serverPathInput->setText(tmp);
+        cwd_server();
+    }
+    else
+    {
+        download();
+    }
+}
+
+void button_client_doubleclicked(int row, int column)
+{
+    QString filename = ui->clientFileTable->item(row, 0)->text();
+    if (ui->clientFileTable->item(row, 3)->text()[0] == 'd')
+    {
+        char tmp[256];
+        sprintf(tmp, "%s/%s", local_dir, filename.toUtf8().data());
+        ui->clientPathInput->setText(tmp);
+        cwd_local();
+    }
+    else
+    {
+        upload();
+    }
+}
+
+void button_download()
+{
+    download();
+}
+
+void button_upload()
+{
+    upload();
 }
 
 void port_checked()

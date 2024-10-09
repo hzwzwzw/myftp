@@ -17,6 +17,10 @@ void button_server_enter_clicked();
 void button_server_parent_clicked();
 void button_client_enter_clicked();
 void button_client_parent_clicked();
+void button_server_doubleclicked(int row, int column);
+void button_client_doubleclicked(int row, int column);
+void button_download();
+void button_upload();
 
 void port_checked();
 void pasv_checked();
@@ -90,9 +94,11 @@ public:
         serverPathInput->setText("/");
         serverCwdButton->setText("Enter");
         serverParentButton->setText("..");
+        serverFileTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
         serverFileTable->setColumnCount(7);
         serverFileTable->horizontalHeader()->setStretchLastSection(true);
         serverFileTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        serverFileTable->setSelectionMode(QAbstractItemView::SingleSelection);
         serverFileLayout->addWidget(serverLabel);
         serverInputLayout->addWidget(serverPathInput);
         serverInputLayout->addWidget(serverCwdButton);
@@ -100,8 +106,10 @@ public:
         serverFileLayout->addLayout(serverInputLayout);
         serverFileLayout->addWidget(serverFileTable);
         mainLayout->addLayout(serverFileLayout);
+        serverPathInput->connect(serverPathInput, &QLineEdit::returnPressed, button_server_enter_clicked);
         serverCwdButton->connect(serverCwdButton, &QPushButton::clicked, button_server_enter_clicked);
         serverParentButton->connect(serverParentButton, &QPushButton::clicked, button_server_parent_clicked);
+        serverFileTable->connect(serverFileTable, &QTableWidget::cellDoubleClicked, button_server_doubleclicked);
 
         // Client folder file list
         clientFileLayout = new QVBoxLayout();
@@ -116,9 +124,11 @@ public:
         clientPathInput->setText("/");
         clientCwdButton->setText("Enter");
         clientParentButton->setText("..");
+        clientFileTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
         clientFileTable->setColumnCount(7);
         clientFileTable->horizontalHeader()->setStretchLastSection(true);
         clientFileTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        clientFileTable->setSelectionMode(QAbstractItemView::SingleSelection);
         clientFileLayout->addWidget(clientLabel);
         clientInputLayout->addWidget(clientPathInput);
         clientInputLayout->addWidget(clientCwdButton);
@@ -126,8 +136,10 @@ public:
         clientFileLayout->addLayout(clientInputLayout);
         clientFileLayout->addWidget(clientFileTable);
         mainLayout->addLayout(clientFileLayout);
+        clientPathInput->connect(clientPathInput, &QLineEdit::returnPressed, button_client_enter_clicked);
         clientCwdButton->connect(clientCwdButton, &QPushButton::clicked, button_client_enter_clicked);
         clientParentButton->connect(clientParentButton, &QPushButton::clicked, button_client_parent_clicked);
+        clientFileTable->connect(clientFileTable, &QTableWidget::cellDoubleClicked, button_client_doubleclicked);
 
         // Upload and download buttons
         transferLayout = new QHBoxLayout();
@@ -138,6 +150,8 @@ public:
         transferLayout->addWidget(uploadButton);
         transferLayout->addWidget(downloadButton);
         mainLayout->addLayout(transferLayout);
+        uploadButton->connect(uploadButton, &QPushButton::clicked, button_upload);
+        downloadButton->connect(downloadButton, &QPushButton::clicked, button_download);
 
         windowLayout->addLayout(mainLayout);
 
