@@ -25,6 +25,7 @@ int listenfd, connfd; // 监听socket和连接socket不一样，后者用于数�
 struct sockaddr_in addr;
 int data_listen;
 
+char rootdir[256] = "/home/ftp";
 char workdir[256] = "/home/ftp";
 char local_addr[15] = "172,24,153,139";
 
@@ -119,6 +120,32 @@ int arguments_break(char *arguments, char *next)
 		strncpy(next, arguments, p - arguments);
 		return p - arguments;
 	}
+}
+
+int getrealdir(char *dir, char *realdir)
+{
+	char tmp[256];
+	if (dir[0] == '/')
+	{
+		sprintf(tmp, "%s%s", rootdir, dir);
+	}
+	else
+	{
+		sprintf(tmp, "%s/%s", workdir, dir);
+	}
+	realpath(tmp, realdir);
+	printf("dir: %s\ncombdir: %s\nrealdir: %s\n", dir, tmp, realdir);
+}
+
+int checksubdir(char *dir)
+{
+	char realdir[256];
+	getrealdir(dir, realdir);
+	if (strncmp(realdir, rootdir, strlen(rootdir)) != 0)
+	{
+		return 1;
+	}
+	return 0;
 }
 
 int proc_USER(char *arguments)
@@ -291,6 +318,7 @@ int proc_RETR(char *arguments)
 	writeMsg(connfd, msg, 0);
 	// send file
 	char buffer[8192];
+	memset(buffer, 0, 8192);
 	int n;
 	while ((n = fread(buffer, 1, 8192, filefp)) > 0)
 	{
@@ -359,6 +387,7 @@ int proc_STOR(char *arguments)
 	writeMsg(connfd, msg, 0);
 	// receive file
 	char buffer[8192];
+	memset(buffer, 0, 8192);
 	int n, size = 0;
 	while ((n = read(datafd, buffer, 8192)) > 0)
 	{
@@ -372,6 +401,157 @@ int proc_STOR(char *arguments)
 	sprintf(msg, "226 Transfer complete. %d bytes transmitted.\r\n", size);
 	writeMsg(connfd, msg, 0);
 	fclose(filefp);
+	close(datafd);
+}
+
+int proc_PWD(char *arguments)
+{
+	if (status_user != STATUS_user_logged_in)
+	{
+		writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+		return -1;
+	}
+	char msg[256];
+	if (strcmp(workdir, rootdir) == 0)
+		sprintf(msg, "257 current directory is %s.\r\n", "/");
+	else
+		sprintf(msg, "257 current directory is %s.\r\n", workdir + strlen(rootdir));
+	writeMsg(connfd, msg, 0);
+}
+int proc_CWD(char *arguments)
+{
+	if (status_user != STATUS_user_logged_in)
+	{
+		writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+		return -1;
+	}
+	char realdir[256];
+	getrealdir(arguments, realdir);
+	if (checksubdir(arguments))
+	{
+		writeMsg(connfd, "550 Permission denied.\r\n", 0);
+	}
+	else if (access(realdir, F_OK) != 0)
+	{
+		writeMsg(connfd, "550 Directory not found.\r\n", 0);
+	}
+	else
+	{
+		strcpy(workdir, realdir);
+		writeMsg(connfd, "250 Directory successfully changed.\r\n", 0);
+	}
+}
+int proc_MKD(char *arguments)
+{
+	if (status_user != STATUS_user_logged_in)
+	{
+		writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+		return -1;
+	}
+	char realdir[256];
+	getrealdir(arguments, realdir);
+	if (checksubdir(arguments))
+	{
+		writeMsg(connfd, "550 Permission denied. An illeagl path\r\n", 0);
+	}
+	else
+	{
+		if (mkdir(realdir, 0777) == -1)
+		{
+			writeMsg(connfd, "550 Permission denied.\r\n", 0);
+		}
+		else
+		{
+			writeMsg(connfd, "257 Directory created.\r\n", 0);
+		}
+	}
+}
+int proc_RMD(char *arguments)
+{
+	if (status_user != STATUS_user_logged_in)
+	{
+		writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+		return -1;
+	}
+	char realdir[256];
+	getrealdir(arguments, realdir);
+	if (checksubdir(arguments))
+	{
+		writeMsg(connfd, "550 Permission denied.\r\n", 0);
+	}
+	else
+	{
+		if (rmdir(realdir) == -1)
+		{
+			writeMsg(connfd, "550 Permission denied.\r\n", 0);
+		}
+		else
+		{
+			writeMsg(connfd, "250 Directory deleted.\r\n", 0);
+		}
+	}
+}
+int proc_LIST(char *arguments)
+{
+	if (status_user != STATUS_user_logged_in)
+	{
+		writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+		return -1;
+	}
+	else if (mode_transfer == MODE_transfer_undefined)
+	{
+		writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
+		return -1;
+	}
+	int datafd;
+	if (mode_transfer == MODE_transfer_pasv)
+	{
+		// wait
+		if ((datafd = accept(data_listen, NULL, NULL)) == -1)
+		{
+			printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+	}
+	else if (mode_transfer == MODE_transfer_port)
+	{
+		if ((datafd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+		{
+			printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+		if (connect(datafd, (struct sockaddr *)&port_addr_data, sizeof(port_addr_data)) < 0)
+		{
+			printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+	}
+	mode_transfer = MODE_transfer_undefined; // clear mode
+	if (datafd == -1)
+	{
+		writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
+		return -1;
+	}
+	char msg[256];
+	sprintf(msg, "150 Here comes the directory listing.\r\n");
+	writeMsg(connfd, msg, 0);
+	// send list
+	char buffer[8192];
+	memset(buffer, 0, 8192);
+	char command[256];
+	sprintf(command, "ls -l %s", workdir);
+	FILE *filefp = popen(command, "r");
+	int n;
+	while ((n = fread(buffer, 1, 8192, filefp)) > 0)
+	{
+		if (write(datafd, buffer, n) == -1)
+		{
+			printf("Error write(): %s(%d)\r\n", strerror(errno), errno);
+			return 1;
+		}
+	}
+	writeMsg(connfd, "226 Directory send OK.\r\n", 0);
+	pclose(filefp);
 	close(datafd);
 }
 
@@ -443,6 +623,8 @@ int main(int argc, char **argv)
 				printf("Received: %s\r\n", sentence);
 				char command[5];
 				char argument[256];
+				memset(command, 0, 5);
+				memset(argument, 0, 256);
 				strncpy(command, sentence, 4);
 				if (command[3] == ' ')
 				{
@@ -456,6 +638,7 @@ int main(int argc, char **argv)
 					if (len > 5)
 						strncpy(argument, sentence + 5, len - 4);
 				}
+				strip(command, 0);
 				strip(argument, 0);
 				if (!strcmp(command, "USER"))
 				{
@@ -480,6 +663,26 @@ int main(int argc, char **argv)
 				else if (!strcmp(command, "STOR"))
 				{
 					proc_STOR(argument);
+				}
+				else if (!strcmp(command, "PWD"))
+				{
+					proc_PWD(argument);
+				}
+				else if (!strcmp(command, "CWD"))
+				{
+					proc_CWD(argument);
+				}
+				else if (!strcmp(command, "MKD"))
+				{
+					proc_MKD(argument);
+				}
+				else if (!strcmp(command, "RMD"))
+				{
+					proc_RMD(argument);
+				}
+				else if (!strcmp(command, "LIST"))
+				{
+					proc_LIST(argument);
 				}
 				else if (!strcmp(command, "SYST"))
 				{

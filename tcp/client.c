@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	// 设置目标主机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 6789;
+	addr.sin_port = 20;
 	if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) <= 0)
 	{ // 转换ip地址:点分十进制-->二进制
 		printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
@@ -120,6 +120,7 @@ int main(int argc, char **argv)
 		}
 
 		// 获取键盘输入
+		memset(sentence, 0, 8192);
 		fgets(sentence, 4096, stdin);
 		len = strlen(sentence);
 		sentence[len] = '\n';
@@ -203,6 +204,7 @@ int main(int argc, char **argv)
 			while (1)
 			{
 				char buffer[8192];
+				memset(buffer, 0, 8192);
 				int n = read(sockfd_data, buffer, 8192);
 				if (n < 0)
 				{
@@ -221,6 +223,7 @@ int main(int argc, char **argv)
 			fclose(file);
 			close(sockfd_data);
 			printf("Transfer complete.\r\n");
+			mode_transfer = MODE_transfer_undefined;
 		}
 		else if (strcmp(command, "STOR") == 0)
 		{
@@ -247,6 +250,7 @@ int main(int argc, char **argv)
 			while (1)
 			{
 				char buffer[8192];
+				memset(buffer, 0, 8192);
 				int n = fread(buffer, 1, 8192, file);
 				if (n < 0)
 				{
@@ -265,6 +269,46 @@ int main(int argc, char **argv)
 			fclose(file);
 			close(sockfd_data);
 			printf("Transfer complete.\r\n");
+			mode_transfer = MODE_transfer_undefined;
+		}
+		else if (strcmp(command, "LIST") == 0)
+		{
+			if (mode_transfer == MODE_transfer_undefined)
+			{
+				printf("Please use PASV or PORT command first.\r\n");
+				continue;
+			}
+			if (mode_transfer == MODE_transfer_port)
+			{
+				if ((sockfd_data = accept(port_listen, NULL, NULL)) == -1)
+				{
+					printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+					return 1;
+				}
+			}
+			// read from data socket
+			while (1)
+			{
+				char buffer[8192];
+				memset(buffer, 0, 8192);
+				int n = read(sockfd_data, buffer, 8192);
+				if (n < 0)
+				{
+					printf("Error read(): %s(%d)\r\n", strerror(errno), errno);
+					return 1;
+				}
+				else if (n == 0)
+				{
+					break;
+				}
+				else
+				{
+					printf("%s", buffer);
+				}
+			}
+			close(sockfd_data);
+			printf("Transfer complete.\r\n");
+			mode_transfer = MODE_transfer_undefined;
 		}
 	}
 	close(sockfd);
