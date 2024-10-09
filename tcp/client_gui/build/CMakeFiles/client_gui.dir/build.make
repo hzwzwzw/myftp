@@ -93,10 +93,11 @@ client_gui_EXTERNAL_OBJECTS =
 client_gui: CMakeFiles/client_gui.dir/src/main.cpp.o
 client_gui: CMakeFiles/client_gui.dir/build.make
 client_gui: /usr/lib/x86_64-linux-gnu/libQt6Widgets.so.6.2.4
+client_gui: /usr/lib/x86_64-linux-gnu/libQt6Network.so.6.2.4
 client_gui: /usr/lib/x86_64-linux-gnu/libQt6Gui.so.6.2.4
-client_gui: /usr/lib/x86_64-linux-gnu/libQt6Core.so.6.2.4
 client_gui: /usr/lib/x86_64-linux-gnu/libGLX.so
 client_gui: /usr/lib/x86_64-linux-gnu/libOpenGL.so
+client_gui: /usr/lib/x86_64-linux-gnu/libQt6Core.so.6.2.4
 client_gui: CMakeFiles/client_gui.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/kirotta/ftp/tcp/client_gui/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable client_gui"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/client_gui.dir/link.txt --verbose=$(VERBOSE)

@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 project(client_gui VERSION 1.0 LANGUAGES CXX)
 
 # 查找 Qt6 的组件
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
 aux_source_directory(./src srcs)
 
@@ -14,7 +14,7 @@ add_executable(${PROJECT_NAME}
 ) 
 
 # 链接 Qt6 的库到可执行文件
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets)
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets Qt6::Network)
 
 # 为项目启用 C++17 标准（根据需要可以修改）
 set_target_properties(${PROJECT_NAME} PROPERTIES

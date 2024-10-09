@@ -574,7 +574,7 @@ int main(int argc, char **argv)
 	// 设置本机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 20;
+	addr.sin_port = 21;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
 
 	// 将本机的ip和port与socket绑定
@@ -615,6 +615,7 @@ int main(int argc, char **argv)
 
 			while (1) // 每次处理一条语句
 			{
+				memset(sentence, 0, 8192);
 				if (-1 == readMsg(connfd, sentence, &len))
 				{
 					break;

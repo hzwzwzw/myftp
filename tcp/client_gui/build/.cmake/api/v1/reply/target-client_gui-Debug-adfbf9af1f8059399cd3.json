@@ -64,6 +64,10 @@
 				},
 				{
 					"backtrace" : 2,
+					"define" : "QT_NETWORK_LIB"
+				},
+				{
+					"backtrace" : 2,
 					"define" : "QT_WIDGETS_LIB"
 				}
 			],
@@ -93,6 +97,11 @@
 					"backtrace" : 2,
 					"isSystem" : true,
 					"path" : "/usr/include/x86_64-linux-gnu/qt6/QtGui"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "/usr/include/x86_64-linux-gnu/qt6/QtNetwork"
 				}
 			],
 			"language" : "CXX",
@@ -130,11 +139,12 @@
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/lib/x86_64-linux-gnu/libQt6Gui.so.6.2.4",
+				"backtrace" : 2,
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libQt6Network.so.6.2.4",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/lib/x86_64-linux-gnu/libQt6Core.so.6.2.4",
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libQt6Gui.so.6.2.4",
 				"role" : "libraries"
 			},
 			{
@@ -143,6 +153,10 @@
 			},
 			{
 				"fragment" : "/usr/lib/x86_64-linux-gnu/libOpenGL.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libQt6Core.so.6.2.4",
 				"role" : "libraries"
 			}
 		],
