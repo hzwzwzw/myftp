@@ -338,7 +338,7 @@ int proc_RETR(char *arguments)
 	close(datafd);
 }
 
-int proc_STOR(char *arguments)
+int proc_STOR(char *arguments, int appe)
 {
 	if (status_user != STATUS_user_logged_in)
 	{
@@ -382,10 +382,21 @@ int proc_STOR(char *arguments)
 	char filename[256];
 	sprintf(filename, "%s/%s", workdir, arguments);
 	FILE *filefp;
-	if ((filefp = fopen(filename, "w")) == NULL)
+	if (appe)
 	{
-		writeMsg(connfd, "550 Permission denied.\r\n", 0);
-		return -1;
+		if ((filefp = fopen(filename, "a")) == NULL)
+		{
+			writeMsg(connfd, "550 Permission denied.\r\n", 0);
+			return -1;
+		}
+	}
+	else
+	{
+		if ((filefp = fopen(filename, "w")) == NULL)
+		{
+			writeMsg(connfd, "550 Permission denied.\r\n", 0);
+			return -1;
+		}
 	}
 	char msg[256];
 	sprintf(msg, "150-Opening BINARY mode data connection for %s.\r\n", arguments);
@@ -588,7 +599,7 @@ int main(int argc, char **argv)
 	// 设置本机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 100;
+	addr.sin_port = 101;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
 
 	// 将本机的ip和port与socket绑定
@@ -677,7 +688,7 @@ int main(int argc, char **argv)
 				}
 				else if (!strcmp(command, "STOR"))
 				{
-					proc_STOR(argument);
+					proc_STOR(argument, 0);
 				}
 				else if (!strcmp(command, "REST"))
 				{
@@ -728,6 +739,10 @@ int main(int argc, char **argv)
 					if (data_listen != -1)
 						close(data_listen);
 					break;
+				}
+				else if (!strcmp(command, "APPE"))
+				{
+					proc_STOR(argument, 1);
 				}
 				else
 				{

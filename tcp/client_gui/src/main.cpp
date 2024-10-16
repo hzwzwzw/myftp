@@ -166,23 +166,27 @@ void download()
         else
         {
             QMessageBox::StandardButton reply;
-            reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists and size < that on server. Append?", QMessageBox::Yes | QMessageBox::No);
-            if (reply == QMessageBox::No)
+            QString msg = "File exists and size < that on server. Append or Overwrite?\nYes: append, No: overwrite, Cancel: do nothing.";
+            reply = QMessageBox::question(ui->getWindow(), "File exists", msg, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            if (reply == QMessageBox::Cancel)
             {
                 return;
             }
-            // warning that
-            reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
-            if (reply == QMessageBox::No)
+            else if (reply == QMessageBox::Yes)
             {
-                return;
+                // warning that
+                reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::No)
+                {
+                    return;
+                }
+                // REST
+                char buf[256];
+                sprintf(buf, "REST %ld\r\n", st.st_size);
+                write(state.sockfd, buf, strlen(buf));
+                read_reply(buf, 256);
+                rest = true;
             }
-            // REST
-            char buf[256];
-            sprintf(buf, "REST %ld\r\n", st.st_size);
-            write(state.sockfd, buf, strlen(buf));
-            read_reply(buf, 256);
-            rest = true;
         }
     }
     char buf[256];
@@ -247,8 +251,57 @@ void upload()
 {
     set_data_socket();
     QString filename = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 0)->text();
+    bool appe = false;
+    long appe_begin;
+    // check if same filename exists in server
+    for (int i = 0; i < ui->serverFileTable->rowCount(); i++)
+    {
+        if (filename == ui->serverFileTable->item(i, 0)->text())
+        {
+            long local_file_size = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 1)->text().toLong();
+            long server_file_size = ui->serverFileTable->item(i, 1)->text().toLong();
+            if (local_file_size <= server_file_size)
+            {
+                QMessageBox::StandardButton reply;
+                reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists. Overwrite?", QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::No)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                QMessageBox::StandardButton reply;
+                QString msg = "File exists and size < that on client. Append or Overwrite?\nYes: append, No: overwrite, Cancel: do nothing.";
+                reply = QMessageBox::question(ui->getWindow(), "File exists", msg, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+                if (reply == QMessageBox::Cancel)
+                {
+                    return;
+                }
+                else if (reply == QMessageBox::Yes)
+                {
+                    // warning that
+                    reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
+                    if (reply == QMessageBox::No)
+                    {
+                        return;
+                    }
+                    appe = true;
+                    appe_begin = server_file_size;
+                }
+            }
+        }
+    }
     char buf[256];
-    sprintf(buf, "STOR %s\r\n", filename.toUtf8().data());
+
+    if (!appe)
+    {
+        sprintf(buf, "STOR %s\r\n", filename.toUtf8().data());
+    }
+    else
+    {
+        sprintf(buf, "APPE %s\r\n", filename.toUtf8().data());
+    }
     write(state.sockfd, buf, strlen(buf));
     connect_to_data_socket();
     bool continueread = true;
@@ -257,6 +310,7 @@ void upload()
     {
         continueread = false;
     }
+    ui->window->repaint();
     char path[256];
     sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
     FILE *file = fopen(path, "rb");
@@ -264,6 +318,10 @@ void upload()
     {
         error("Error fopen.", strerror(errno), errno);
         return;
+    }
+    if (appe)
+    {
+        fseek(file, appe_begin, SEEK_SET);
     }
     while (1)
     {
