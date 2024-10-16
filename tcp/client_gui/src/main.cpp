@@ -748,9 +748,45 @@ int read_reply(char *str, int max_len)
 
 int main(int argc, char *argv[])
 {
+    char addr[16] = "127.0.0.1";
+    char port[6] = "21";
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "-ip") == 0)
+        {
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+            {
+                strcpy(addr, argv[++i]);
+            }
+            else
+            {
+                printf("Missing argument for -ip\n");
+                return 1;
+            }
+        }
+        else if (strcmp(argv[i], "-port") == 0)
+        {
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+            {
+                strcpy(port, argv[++i]);
+            }
+            else
+            {
+                printf("Missing argument for -port\n");
+                return 1;
+            }
+        }
+        else
+        {
+            printf("Unknown option: %s\n", argv[i]);
+            return 1;
+        }
+    }
     QApplication app(argc, argv);
     ui = new FtpClientUI();
     ui->getWindow()->show();
+    ui->serverAddrInput->setText(addr);
+    ui->serverPortInput->setText(port);
     // get /home/username/Downloads
     char home[128];
     strcpy(home, getenv("HOME"));

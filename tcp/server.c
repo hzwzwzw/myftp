@@ -605,6 +605,44 @@ int main(int argc, char **argv)
 	printf("*****************\n");
 	printf("*FTP SERVER VIEW*\n");
 	printf("*****************\r\n");
+
+	strcpy(rootdir, "/tmp");
+	strcpy(workdir, "/tmp");
+	int port = 21;
+	for (int i = 1; i < argc; i++)
+	{
+		if (strcmp(argv[i], "-root") == 0)
+		{
+			if (i + 1 < argc && argv[i + 1][0] != '-')
+			{
+				strcpy(rootdir, argv[++i]);
+				strcpy(workdir, rootdir);
+			}
+			else
+			{
+				printf("Missing argument for -root\n");
+				return 1;
+			}
+		}
+		else if (strcmp(argv[i], "-port") == 0)
+		{
+			if (i + 1 < argc && argv[i + 1][0] != '-')
+			{
+				port = atoi(argv[++i]);
+			}
+			else
+			{
+				printf("Missing argument for -port\n");
+				return 1;
+			}
+		}
+		else
+		{
+			printf("Unknown option: %s\n", argv[i]);
+			return 1;
+		}
+	}
+
 	char sentence[8192];
 	// int p;
 	int len;
@@ -619,7 +657,7 @@ int main(int argc, char **argv)
 	// 设置本机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 101;
+	addr.sin_port = port;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
 
 	// 将本机的ip和port与socket绑定
