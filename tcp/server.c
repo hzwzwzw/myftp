@@ -9,6 +9,7 @@
 #include <memory.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #define STATUS_user_not_logged_in 0
 #define STATUS_user_need_password 1
@@ -29,6 +30,8 @@ int data_listen;
 char rootdir[256] = "/home/ftp";
 char workdir[256] = "/home/ftp";
 char local_addr[15] = "172,24,153,139";
+
+long rest_index = 0;
 
 struct sockaddr_in port_addr_data;
 
@@ -312,10 +315,10 @@ int proc_RETR(char *arguments)
 	}
 	// get file size
 	fseek(filefp, 0, SEEK_END);
-	int file_size = ftell(filefp);
-	fseek(filefp, 0, SEEK_SET);
+	long file_size = ftell(filefp);
+	fseek(filefp, rest_index, SEEK_SET);
 	char msg[256];
-	sprintf(msg, "150 Opening BINARY mode data connection for %s (%d bytes).\r\n", arguments, file_size);
+	sprintf(msg, "150-Opening BINARY mode data connection for %s (%ld bytes).\r\n", arguments, file_size);
 	writeMsg(connfd, msg, 0);
 	// send file
 	char buffer[8192];
@@ -330,6 +333,7 @@ int proc_RETR(char *arguments)
 		}
 	}
 	writeMsg(connfd, "226 Transfer complete.\r\n", 0);
+	rest_index = 0;
 	fclose(filefp);
 	close(datafd);
 }
@@ -384,12 +388,13 @@ int proc_STOR(char *arguments)
 		return -1;
 	}
 	char msg[256];
-	sprintf(msg, "150 Opening BINARY mode data connection for %s.\r\n", arguments);
+	sprintf(msg, "150-Opening BINARY mode data connection for %s.\r\n", arguments);
 	writeMsg(connfd, msg, 0);
 	// receive file
 	char buffer[8192];
 	memset(buffer, 0, 8192);
-	int n, size = 0;
+	int n;
+	long size = 0;
 	while ((n = read(datafd, buffer, 8192)) > 0)
 	{
 		if (fwrite(buffer, 1, n, filefp) == -1)
@@ -399,7 +404,7 @@ int proc_STOR(char *arguments)
 		}
 		size += n;
 	}
-	sprintf(msg, "226 Transfer complete. %d bytes transmitted.\r\n", size);
+	sprintf(msg, "226 Transfer complete. %ld bytes transmitted.\r\n", size);
 	writeMsg(connfd, msg, 0);
 	fclose(filefp);
 	close(datafd);
@@ -583,7 +588,7 @@ int main(int argc, char **argv)
 	// 设置本机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = 21;
+	addr.sin_port = 100;
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
 
 	// 将本机的ip和port与socket绑定
@@ -673,6 +678,11 @@ int main(int argc, char **argv)
 				else if (!strcmp(command, "STOR"))
 				{
 					proc_STOR(argument);
+				}
+				else if (!strcmp(command, "REST"))
+				{
+					sscanf(argument, "%ld", &rest_index);
+					writeMsg(connfd, "350 Restart position accepted.\r\n", 0);
 				}
 				else if (!strcmp(command, "PWD"))
 				{

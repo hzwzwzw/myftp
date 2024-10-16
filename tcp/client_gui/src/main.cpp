@@ -10,11 +10,13 @@
 #include <stdio.h>
 
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "ftpclientui.h"
 
 #include <QRegularExpression>
 #include <QNetworkInterface>
+#include <QMessageBox>
 
 #define MODE_transfer_undefined 0
 #define MODE_transfer_port 1
@@ -27,12 +29,12 @@ FtpClientUI *ui;
 class FtpState
 {
 public:
-    int sockfd;
+    int sockfd = -1;
     struct sockaddr_in addr;
     int mode_transfer = MODE_transfer_pasv;
-    int sockfd_data;
+    int sockfd_data = -1;
     struct sockaddr_in addr_data;
-    int port_listen;
+    int port_listen = -1;
     char dir[256];
 };
 
@@ -45,6 +47,12 @@ void list_local();
 
 void set_data_socket();
 void connect_to_data_socket();
+
+void error(const char *message, const char *strsrror, int errorno)
+{
+    QMessageBox::critical(ui->getWindow(), "Error", message);
+    printf("Error: %s, %s(%d)\r\n", message, strerror, errorno);
+}
 
 void cwd_server()
 {
@@ -83,19 +91,19 @@ void cwd_local()
     char real[256];
     if (realpath(tmp, real) == NULL)
     {
-        printf("Error realpath(): %s(%d)\r\n", strerror(errno), errno);
+        error("Error realpath()\r\n", strerror(errno), errno);
         return;
     }
     // check if it exits and is a directory
     struct stat st;
     if (stat(real, &st) == -1)
     {
-        printf("Error stat(): %s(%d)\r\n", strerror(errno), errno);
+        printf("Error stat.", strerror(errno), errno);
         return;
     }
     if (!S_ISDIR(st.st_mode))
     {
-        printf("Error: not a directory\r\n");
+        error("Error: not a directory\r\n", "", 0);
         return;
     }
     strcpy(local_dir, real);
@@ -108,7 +116,7 @@ int connect_to_server(char *ip_addr, int port)
     // 创建socket
     if ((state.sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
-        printf("Error socket(): %s(%d)\n", strerror(errno), errno);
+        error("Error socket.", strerror(errno), errno);
         return 1;
     }
 
@@ -118,14 +126,14 @@ int connect_to_server(char *ip_addr, int port)
     state.addr.sin_port = port;
     if (inet_pton(AF_INET, ip_addr, &state.addr.sin_addr) <= 0)
     { // 转换ip地址:点分十进制-->二进制
-        printf("Error inet_pton(): %s(%d)\n", strerror(errno), errno);
+        error("Error inet_pton.", strerror(errno), errno);
         return 1;
     }
 
     // 连接上目标主机（将socket和目标主机连接）-- 阻塞函数
     if (connect(state.sockfd, (struct sockaddr *)&state.addr, sizeof(state.addr)) < 0)
     {
-        printf("Error connect(): %s(%d)\n", strerror(errno), errno);
+        error("Error connect.", strerror(errno), errno);
         return 1;
     }
     char buf[8192];
@@ -137,17 +145,69 @@ void download()
 {
     set_data_socket();
     QString filename = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 0)->text();
+    // check if same filename exists in local
+    char path[256];
+    sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
+    struct stat st;
+    bool rest = false;
+    if (stat(path, &st) != -1)
+    {
+        // check if filesize is the same
+        long server_file_size = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 1)->text().toLong();
+        if (st.st_size >= server_file_size)
+        {
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists. Overwrite?", QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No)
+            {
+                return;
+            }
+        }
+        else
+        {
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists and size < that on server. Append?", QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No)
+            {
+                return;
+            }
+            // warning that
+            reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No)
+            {
+                return;
+            }
+            // REST
+            char buf[256];
+            sprintf(buf, "REST %ld\r\n", st.st_size);
+            write(state.sockfd, buf, strlen(buf));
+            read_reply(buf, 256);
+            rest = true;
+        }
+    }
     char buf[256];
     sprintf(buf, "RETR %s\r\n", filename.toUtf8().data());
     write(state.sockfd, buf, strlen(buf));
     connect_to_data_socket();
+    bool continueread = true;
     read_reply(buf, 256);
-    char path[256];
-    sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
-    FILE *file = fopen(path, "wb+");
+    if (buf[3] == ' ')
+    {
+        continueread = false;
+    }
+    ui->window->repaint();
+    FILE *file;
+    if (!rest)
+    {
+        file = fopen(path, "wb+");
+    }
+    else
+    {
+        file = fopen(path, "ab+");
+    }
     if (file == NULL)
     {
-        printf("Error fopen(): %s(%d)\r\n", strerror(errno), errno);
+        error("Error fopen.", strerror(errno), errno);
         return;
     }
     while (1)
@@ -157,7 +217,7 @@ void download()
         int n = read(state.sockfd_data, buffer, 8192);
         if (n < 0)
         {
-            printf("Error read(): %s(%d)\r\n", strerror(errno), errno);
+            error("Error read.", strerror(errno), errno);
             return;
         }
         else if (n == 0)
@@ -171,7 +231,14 @@ void download()
     }
     fclose(file);
     close(state.sockfd_data);
-    read_reply(buf, 256);
+    while (continueread)
+    {
+        read_reply(buf, 256);
+        if (buf[3] == ' ')
+        {
+            break;
+        }
+    }
     printf("Transfer complete.\r\n");
     cwd_local();
 }
@@ -184,13 +251,18 @@ void upload()
     sprintf(buf, "STOR %s\r\n", filename.toUtf8().data());
     write(state.sockfd, buf, strlen(buf));
     connect_to_data_socket();
+    bool continueread = true;
     read_reply(buf, 256);
+    if (buf[3] == ' ')
+    {
+        continueread = false;
+    }
     char path[256];
     sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
     FILE *file = fopen(path, "rb");
     if (file == NULL)
     {
-        printf("Error fopen(): %s(%d)\r\n", strerror(errno), errno);
+        error("Error fopen.", strerror(errno), errno);
         return;
     }
     while (1)
@@ -200,7 +272,7 @@ void upload()
         int n = fread(buffer, 1, 8192, file);
         if (n < 0)
         {
-            printf("Error fread(): %s(%d)\r\n", strerror(errno), errno);
+            error("Error fread.", strerror(errno), errno);
             return;
         }
         else if (n == 0)
@@ -214,7 +286,14 @@ void upload()
     }
     fclose(file);
     close(state.sockfd_data);
-    read_reply(buf, 256);
+    while (continueread)
+    {
+        read_reply(buf, 256);
+        if (buf[3] == ' ')
+        {
+            break;
+        }
+    }
     printf("Transfer complete.\r\n");
     cwd_server();
 }
@@ -231,6 +310,11 @@ void button_connect_clicked()
 
 void button_login_clicked()
 {
+    if (state.sockfd == -1)
+    {
+        error("Please connect to server first.", "", 0);
+        return;
+    }
     const char *username = ui->usernameInput->text().toUtf8().data();
     const char *password = ui->passwordInput->text().toUtf8().data();
     char buf[8192];
@@ -413,7 +497,7 @@ void set_pasv()
         int port = temp[4] * 256 + temp[5];
         if ((state.sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         {
-            printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+            error("Error socket.", strerror(errno), errno);
             return;
         }
         memset(&state.addr_data, 0, sizeof(state.addr_data));
@@ -421,7 +505,7 @@ void set_pasv()
         state.addr_data.sin_port = htons(port);
         if (inet_pton(AF_INET, ip, &state.addr_data.sin_addr) <= 0)
         {
-            printf("Error inet_pton(): %s(%d)\r\n", strerror(errno), errno);
+            error("Error inet_pton.", strerror(errno), errno);
             return;
         }
     }
@@ -433,7 +517,7 @@ void connect_to_data_socket()
     {
         if ((state.sockfd_data = accept(state.port_listen, NULL, NULL)) == -1)
         {
-            printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+            error("Error accept.", strerror(errno), errno);
             return;
         }
     }
@@ -441,7 +525,7 @@ void connect_to_data_socket()
     {
         if (connect(state.sockfd_data, (struct sockaddr *)&state.addr_data, sizeof(state.addr_data)) < 0)
         {
-            printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+            error("Error connect.", strerror(errno), errno);
             return;
         }
     }
@@ -478,7 +562,7 @@ void list_server()
             int n = read(state.sockfd_data, buffer, 8192);
             if (n < 0)
             {
-                printf("Error read(): %s(%d)\r\n", strerror(errno), errno);
+                error("Error read.", strerror(errno), errno);
                 return;
             }
             else if (n == 0)
@@ -526,7 +610,7 @@ void list_local()
     FILE *fp = popen(command, "r");
     if (fp == NULL)
     {
-        printf("Error popen(): %s(%d)\r\n", strerror(errno), errno);
+        error("Error popen.", strerror(errno), errno);
         return;
     }
     ui->clientFileTable->clear();
@@ -567,7 +651,7 @@ int read_reply(char *str, int max_len)
 {
     if (state.sockfd == -1)
     {
-        printf("Error read(): socket not connected\n");
+        error("Error sockfd.", "", 0);
         return 1;
     }
     int p = 0;
@@ -576,7 +660,7 @@ int read_reply(char *str, int max_len)
         int n = read(state.sockfd, str + p, max_len - p);
         if (n < 0)
         {
-            printf("Error read(): %s(%d)\r\n", strerror(errno), errno); // read不保证一次读完，可能中途退出
+            error("Error read.", strerror(errno), errno);
             return 1;
         }
         else if (n == 0)

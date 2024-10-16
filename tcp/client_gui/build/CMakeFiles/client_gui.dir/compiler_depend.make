@@ -104,6 +104,10 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
   /usr/include/x86_64-linux-gnu/bits/statx-generic.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_statx_timestamp.h \
   /usr/include/x86_64-linux-gnu/bits/types/struct_statx.h \
+  /usr/include/fcntl.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl.h \
+  /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h \
+  /usr/include/linux/falloc.h \
   ../src/ftpclientui.h \
   /usr/include/x86_64-linux-gnu/qt6/QtWidgets/QApplication \
   /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qapplication.h \
@@ -482,8 +486,15 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
   /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qtnetworkglobal.h \
   /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qtnetwork-config.h \
   /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qhostaddress.h \
-  /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qabstractsocket.h
+  /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qabstractsocket.h \
+  /usr/include/x86_64-linux-gnu/qt6/QtWidgets/QMessageBox \
+  /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qmessagebox.h \
+  /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qdialog.h
 
+
+/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qdialog.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qmessagebox.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qtnetwork-config.h:
 
@@ -498,8 +509,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtabwidget.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qslider.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qregularexpression.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qabstractitemdelegate.h:
 
@@ -727,6 +736,8 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/pthread.h:
 
+/usr/include/x86_64-linux-gnu/qt6/QtWidgets/QMessageBox:
+
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qobject_impl.h:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/gthr-default.h:
@@ -767,21 +778,9 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/c++/11/bits/stringfwd.h:
 
-/usr/include/assert.h:
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qcontainertools_impl.h:
 
-/usr/include/c++/11/bits/stl_iterator_base_types.h:
-
-/usr/include/c++/11/cstdlib:
-
-/usr/include/c++/11/tr1/poly_laguerre.tcc:
-
-/usr/include/x86_64-linux-gnu/bits/wchar.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtGui/qregion.h:
-
-/usr/include/c++/11/cerrno:
-
-/usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h:
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qarraydataops.h:
 
 /usr/include/c++/11/iosfwd:
 
@@ -829,6 +828,12 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/linux/close_range.h:
 
+/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
+
+/usr/include/fcntl.h:
+
+/usr/include/c++/11/variant:
+
 /usr/include/x86_64-linux-gnu/bits/types/struct_statx.h:
 
 /usr/include/c++/11/cstdint:
@@ -869,19 +874,9 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/floatn.h:
 
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qarraydataops.h:
-
 /usr/include/x86_64-linux-gnu/qt6/QtWidgets/QApplication:
 
 /usr/include/c++/11/new:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qmath.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qobjectdefs.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qtcore-config.h:
-
-/usr/include/linux/types.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/FILE.h:
 
@@ -923,9 +918,21 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_timeval.h:
 
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qregularexpression.h:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl.h:
+
 /usr/include/c++/11/functional:
 
 /usr/include/linux/errno.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtGui/qregion.h:
+
+/usr/include/c++/11/cerrno:
+
+/usr/include/x86_64-linux-gnu/bits/types/cookie_io_functions_t.h:
+
+/usr/include/x86_64-linux-gnu/bits/wchar.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtGui/qbitmap.h:
 
@@ -979,8 +986,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qversiontagging.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/struct_osockaddr.h:
-
 /usr/include/c++/11/bits/streambuf.tcc:
 
 /usr/include/string.h:
@@ -996,12 +1001,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
 
 /usr/include/x86_64-linux-gnu/bits/types.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
-
-/usr/include/c++/11/bits/stl_bvector.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qsystemdetection.h:
 
@@ -1045,6 +1044,10 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/wordsize.h:
 
+/usr/include/c++/11/bits/invoke.h:
+
+/usr/include/asm-generic/socket.h:
+
 /usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qglobalstatic.h:
@@ -1054,6 +1057,14 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/c++/11/bits/functexcept.h:
 
 /usr/include/x86_64-linux-gnu/bits/time64.h:
+
+/usr/include/assert.h:
+
+/usr/include/c++/11/bits/stl_iterator_base_types.h:
+
+/usr/include/c++/11/cstdlib:
+
+/usr/include/c++/11/tr1/poly_laguerre.tcc:
 
 /usr/include/linux/stat.h:
 
@@ -1095,6 +1106,20 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qatomic_cxx11.h:
 
+/usr/include/x86_64-linux-gnu/bits/types/struct_osockaddr.h:
+
+/usr/include/c++/11/bits/streambuf_iterator.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qarraydatapointer.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qconfig.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct___jmp_buf_tag.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/clockid_t.h:
+
+/usr/include/c++/11/bits/stl_bvector.h:
+
 /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:
@@ -1133,6 +1158,12 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qatomic.h:
 
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qsharedpointer_impl.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qcompilerdetection.h:
+
+/usr/include/c++/11/bits/uses_allocator.h:
+
 /usr/include/c++/11/bits/vector.tcc:
 
 /usr/include/x86_64-linux-gnu/qt6/QtGui/qpen.h:
@@ -1141,13 +1172,15 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/asm-generic/sockios.h:
 
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qmath.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qobjectdefs.h:
+
+/usr/include/linux/types.h:
+
+/usr/include/x86_64-linux-gnu/qt6/QtCore/qtcore-config.h:
+
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qprocessordetection.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qsharedpointer_impl.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qcompilerdetection.h:
-
-/usr/include/c++/11/bits/uses_allocator.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qpoint.h:
 
@@ -1227,10 +1260,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/c++/11/bits/cxxabi_init_exception.h:
 
-/usr/include/asm-generic/socket.h:
-
-/usr/include/c++/11/bits/invoke.h:
-
 /usr/include/c++/11/bits/functional_hash.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qcontainerfwd.h:
@@ -1265,9 +1294,9 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h:
 
-/usr/include/x86_64-linux-gnu/sys/socket.h:
-
 /usr/include/c++/11/bits/stl_function.h:
+
+/usr/include/x86_64-linux-gnu/sys/socket.h:
 
 /usr/include/c++/11/bits/memoryfwd.h:
 
@@ -1319,8 +1348,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qtypeinfo.h:
 
-/usr/include/c++/11/variant:
-
 /usr/include/c++/11/bits/parse_numbers.h:
 
 /usr/include/c++/11/exception:
@@ -1328,12 +1355,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/c++/11/bits/exception_ptr.h:
 
 /usr/include/c++/11/bits/nested_exception.h:
-
-/usr/include/c++/11/bits/streambuf_iterator.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qconfig.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qarraydatapointer.h:
 
 /usr/include/c++/11/vector:
 
@@ -1354,6 +1375,14 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/c++/11/tr1/bessel_function.tcc:
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qnumeric.h:
+
+/usr/include/c++/11/cstring:
+
+/usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
+
+/usr/include/x86_64-linux-gnu/asm/sockios.h:
+
+/usr/include/math.h:
 
 /usr/include/c++/11/string_view:
 
@@ -1378,6 +1407,8 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/c++/11/bits/postypes.h:
 
 /usr/include/x86_64-linux-gnu/bits/in.h:
+
+/usr/include/linux/falloc.h:
 
 /usr/include/x86_64-linux-gnu/bits/mathcalls-narrow.h:
 
@@ -1421,14 +1452,6 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qchar.h:
 
-/usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
-
-/usr/include/x86_64-linux-gnu/asm/sockios.h:
-
-/usr/include/math.h:
-
-/usr/include/c++/11/cstring:
-
 /usr/include/x86_64-linux-gnu/qt6/QtGui/qrgb.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtGui/qcursor.h:
@@ -1440,5 +1463,3 @@ CMakeFiles/client_gui.dir/src/main.cpp.o: ../src/main.cpp \
 /usr/include/x86_64-linux-gnu/bits/atomic_wide_counter.h:
 
 /usr/include/x86_64-linux-gnu/qt6/QtCore/qpair.h:
-
-/usr/include/x86_64-linux-gnu/qt6/QtCore/qcontainertools_impl.h:

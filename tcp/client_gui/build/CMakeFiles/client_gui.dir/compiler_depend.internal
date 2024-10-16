@@ -105,6 +105,10 @@ CMakeFiles/client_gui.dir/src/main.cpp.o
  /usr/include/x86_64-linux-gnu/bits/statx-generic.h
  /usr/include/x86_64-linux-gnu/bits/types/struct_statx_timestamp.h
  /usr/include/x86_64-linux-gnu/bits/types/struct_statx.h
+ /usr/include/fcntl.h
+ /usr/include/x86_64-linux-gnu/bits/fcntl.h
+ /usr/include/x86_64-linux-gnu/bits/fcntl-linux.h
+ /usr/include/linux/falloc.h
  /home/kirotta/ftp/tcp/client_gui/src/ftpclientui.h
  /usr/include/x86_64-linux-gnu/qt6/QtWidgets/QApplication
  /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qapplication.h
@@ -484,4 +488,7 @@ CMakeFiles/client_gui.dir/src/main.cpp.o
  /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qtnetwork-config.h
  /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qhostaddress.h
  /usr/include/x86_64-linux-gnu/qt6/QtNetwork/qabstractsocket.h
+ /usr/include/x86_64-linux-gnu/qt6/QtWidgets/QMessageBox
+ /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qmessagebox.h
+ /usr/include/x86_64-linux-gnu/qt6/QtWidgets/qdialog.h
 
