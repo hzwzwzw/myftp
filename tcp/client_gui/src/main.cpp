@@ -38,23 +38,26 @@ public:
     char dir[256];
 };
 
+bool gui_mode = true;
+
 char local_dir[256];
 
 FtpState state;
 
-void list_server();
-void list_local();
+void gui_list_server();
+void gui_list_local();
 
 void set_data_socket();
 void connect_to_data_socket();
 
 void error(const char *message, const char *strerror_, int errorno)
 {
-    QMessageBox::critical(ui->getWindow(), "Error", message);
+    if (gui_mode)
+        QMessageBox::critical(ui->getWindow(), "Error", message);
     printf("Error: %s, %s (%d)\r\n", message, strerror_, errorno);
 }
 
-void cwd_server()
+void gui_cwd_server()
 {
     char path[256];
     strcpy(path, ui->serverPathInput->text().toUtf8().data());
@@ -62,7 +65,7 @@ void cwd_server()
     snprintf(buf, sizeof(buf), "CWD %s\r\n", path);
     write(state.sockfd, buf, strlen(buf));
     read_reply(buf, 256);
-    list_server();
+    gui_list_server();
     // use PWD to get current directory
     write(state.sockfd, "PWD\r\n", 5);
     read_reply(buf, 256);
@@ -78,7 +81,7 @@ void cwd_server()
     }
 }
 
-void cwd_local()
+void gui_cwd_local()
 {
     char path[256];
     strcpy(path, ui->clientPathInput->text().toUtf8().data());
@@ -108,7 +111,7 @@ void cwd_local()
     }
     strcpy(local_dir, real);
     ui->clientPathInput->setText(local_dir);
-    list_local();
+    gui_list_local();
 }
 
 int connect_to_server(char *ip_addr, int port)
@@ -141,56 +144,11 @@ int connect_to_server(char *ip_addr, int port)
     return 0;
 }
 
-void download()
+void download(QString filename, bool rest)
 {
     set_data_socket();
-    QString filename = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 0)->text();
-    char filename_[256];
-    strcpy(filename_, filename.toUtf8().data());
-    // check if same filename exists in local
     char path[512 + 2];
-    snprintf(path, sizeof(path), "%s/%s", local_dir, filename_);
-    struct stat st;
-    bool rest = false;
-    if (stat(path, &st) != -1)
-    {
-        // check if filesize is the same
-        long server_file_size = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 1)->text().toLong();
-        if (st.st_size >= server_file_size)
-        {
-            QMessageBox::StandardButton reply;
-            reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists. Overwrite?", QMessageBox::Yes | QMessageBox::No);
-            if (reply == QMessageBox::No)
-            {
-                return;
-            }
-        }
-        else
-        {
-            QMessageBox::StandardButton reply;
-            QString msg = "File exists and size < that on server. Append or Overwrite?\nYes: append, No: overwrite, Cancel: do nothing.";
-            reply = QMessageBox::question(ui->getWindow(), "File exists", msg, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-            if (reply == QMessageBox::Cancel)
-            {
-                return;
-            }
-            else if (reply == QMessageBox::Yes)
-            {
-                // warning that
-                reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
-                if (reply == QMessageBox::No)
-                {
-                    return;
-                }
-                // REST
-                char buf[256];
-                sprintf(buf, "REST %ld\r\n", st.st_size);
-                write(state.sockfd, buf, strlen(buf));
-                read_reply(buf, 256);
-                rest = true;
-            }
-        }
-    }
+    snprintf(path, sizeof(path), "%s/%s", local_dir, filename.toUtf8().data());
     char buf[256];
     sprintf(buf, "RETR %s\r\n", filename.toUtf8().data());
     write(state.sockfd, buf, strlen(buf));
@@ -201,7 +159,6 @@ void download()
     {
         continueread = false;
     }
-    ui->window->repaint();
     FILE *file;
     if (!rest)
     {
@@ -246,57 +203,65 @@ void download()
         }
     }
     printf("Transfer complete.\r\n");
-    cwd_local();
 }
 
-void upload()
+void gui_download()
 {
-    set_data_socket();
-    QString filename = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 0)->text();
-    bool appe = false;
-    long appe_begin;
-    // check if same filename exists in server
-    for (int i = 0; i < ui->serverFileTable->rowCount(); i++)
+    QString filename = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 0)->text();
+    // check if same filename exists in local
+    char path[512 + 2];
+    snprintf(path, sizeof(path), "%s/%s", local_dir, filename.toUtf8().data());
+    struct stat st;
+    bool rest = false;
+    if (stat(path, &st) != -1)
     {
-        if (filename == ui->serverFileTable->item(i, 0)->text())
+        // check if filesize is the same
+        long server_file_size = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 1)->text().toLong();
+        if (st.st_size >= server_file_size)
         {
-            long local_file_size = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 1)->text().toLong();
-            long server_file_size = ui->serverFileTable->item(i, 1)->text().toLong();
-            if (local_file_size <= server_file_size)
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists. Overwrite?", QMessageBox::Yes | QMessageBox::No);
+            if (reply == QMessageBox::No)
             {
-                QMessageBox::StandardButton reply;
-                reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists. Overwrite?", QMessageBox::Yes | QMessageBox::No);
+                return;
+            }
+        }
+        else
+        {
+            QMessageBox::StandardButton reply;
+            QString msg = "File exists and size < that on server. Append or Overwrite?\nYes: append, No: overwrite, Cancel: do nothing.";
+            reply = QMessageBox::question(ui->getWindow(), "File exists", msg, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            if (reply == QMessageBox::Cancel)
+            {
+                return;
+            }
+            else if (reply == QMessageBox::Yes)
+            {
+                // warning that
+                reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
                 if (reply == QMessageBox::No)
                 {
                     return;
                 }
-            }
-            else
-            {
-                QMessageBox::StandardButton reply;
-                QString msg = "File exists and size < that on client. Append or Overwrite?\nYes: append, No: overwrite, Cancel: do nothing.";
-                reply = QMessageBox::question(ui->getWindow(), "File exists", msg, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
-                if (reply == QMessageBox::Cancel)
-                {
-                    return;
-                }
-                else if (reply == QMessageBox::Yes)
-                {
-                    // warning that
-                    reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
-                    if (reply == QMessageBox::No)
-                    {
-                        return;
-                    }
-                    appe = true;
-                    appe_begin = server_file_size;
-                }
+                // REST
+                char buf[256];
+                sprintf(buf, "REST %ld\r\n", st.st_size);
+                write(state.sockfd, buf, strlen(buf));
+                read_reply(buf, 256);
+                rest = true;
             }
         }
     }
+    download(filename, rest);
+    gui_cwd_local();
+}
+
+void upload(QString filename, long appe_begin)
+{
+    set_data_socket();
     char buf[256];
 
-    if (!appe)
+    if (appe_begin == 0)
     {
         sprintf(buf, "STOR %s\r\n", filename.toUtf8().data());
     }
@@ -312,7 +277,6 @@ void upload()
     {
         continueread = false;
     }
-    ui->window->repaint();
     char path[512 + 2];
     snprintf(path, sizeof(path), "%s/%s", local_dir, filename.toUtf8().data());
     FILE *file = fopen(path, "rb");
@@ -321,7 +285,7 @@ void upload()
         error("Error fopen.", strerror(errno), errno);
         return;
     }
-    if (appe)
+    if (appe_begin == 0)
     {
         fseek(file, appe_begin, SEEK_SET);
     }
@@ -355,7 +319,52 @@ void upload()
         }
     }
     printf("Transfer complete.\r\n");
-    cwd_server();
+}
+
+void gui_upload()
+{
+    QString filename = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 0)->text();
+    long appe_begin = 0;
+    // check if same filename exists in server
+    for (int i = 0; i < ui->serverFileTable->rowCount(); i++)
+    {
+        if (filename == ui->serverFileTable->item(i, 0)->text())
+        {
+            long local_file_size = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 1)->text().toLong();
+            long server_file_size = ui->serverFileTable->item(i, 1)->text().toLong();
+            if (local_file_size <= server_file_size)
+            {
+                QMessageBox::StandardButton reply;
+                reply = QMessageBox::question(ui->getWindow(), "File exists", "File exists. Overwrite?", QMessageBox::Yes | QMessageBox::No);
+                if (reply == QMessageBox::No)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                QMessageBox::StandardButton reply;
+                QString msg = "File exists and size < that on client. Append or Overwrite?\nYes: append, No: overwrite, Cancel: do nothing.";
+                reply = QMessageBox::question(ui->getWindow(), "File exists", msg, QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+                if (reply == QMessageBox::Cancel)
+                {
+                    return;
+                }
+                else if (reply == QMessageBox::Yes)
+                {
+                    // warning that
+                    reply = QMessageBox::question(ui->getWindow(), "Warning", "Wrong appending may cause file corruption. Continue?", QMessageBox::Yes | QMessageBox::No);
+                    if (reply == QMessageBox::No)
+                    {
+                        return;
+                    }
+                    appe_begin = server_file_size;
+                }
+            }
+        }
+    }
+    upload(filename, appe_begin);
+    gui_cwd_server();
 }
 
 void button_connect_clicked()
@@ -391,12 +400,12 @@ void button_login_clicked()
         write(state.sockfd, buf, strlen(buf));
         read_reply(buf, 8192);
     }
-    list_server();
+    gui_list_server();
 }
 
 void button_server_enter_clicked()
 {
-    cwd_server();
+    gui_cwd_server();
 }
 
 void button_server_parent_clicked()
@@ -404,12 +413,12 @@ void button_server_parent_clicked()
     char path[256 + 5];
     snprintf(path, sizeof(path), "%s/..", state.dir);
     ui->serverPathInput->setText(path);
-    cwd_server();
+    gui_cwd_server();
 }
 
 void button_client_enter_clicked()
 {
-    cwd_local();
+    gui_cwd_local();
 }
 
 void button_client_parent_clicked()
@@ -417,7 +426,7 @@ void button_client_parent_clicked()
     char path[256 + 5];
     snprintf(path, sizeof(path), "%s/..", local_dir);
     ui->clientPathInput->setText(path);
-    cwd_local();
+    gui_cwd_local();
 }
 
 void button_server_doubleclicked(int row, int column)
@@ -428,11 +437,11 @@ void button_server_doubleclicked(int row, int column)
         char tmp[512 + 2];
         snprintf(tmp, sizeof(tmp), "%s/%s", state.dir, filename.toUtf8().data());
         ui->serverPathInput->setText(tmp);
-        cwd_server();
+        gui_cwd_server();
     }
     else
     {
-        download();
+        gui_download();
     }
 }
 
@@ -444,22 +453,22 @@ void button_client_doubleclicked(int row, int column)
         char tmp[512 + 2];
         snprintf(tmp, sizeof(tmp), "%s/%s", local_dir, filename.toUtf8().data());
         ui->clientPathInput->setText(tmp);
-        cwd_local();
+        gui_cwd_local();
     }
     else
     {
-        upload();
+        gui_upload();
     }
 }
 
 void button_download()
 {
-    download();
+    gui_download();
 }
 
 void button_upload()
 {
-    upload();
+    gui_upload();
 }
 
 void port_checked()
@@ -603,7 +612,7 @@ void set_data_socket()
     }
 }
 
-void list_server()
+void gui_list_server()
 {
     set_data_socket();
     write(state.sockfd, "LIST\r\n", 6);
@@ -663,7 +672,7 @@ void list_server()
     }
 }
 
-void list_local()
+void gui_list_local()
 {
     char command[256 + 10];
     sprintf(command, "ls -l %s", local_dir);
@@ -742,7 +751,11 @@ int read_reply(char *str, int max_len)
     }
     str[p - 1] = 0;
     printf("FROM SERVER: %s \r\n", str);
-    ui->shellInput->setText(ui->shellInput->toPlainText() + str);
+    if (gui_mode)
+    {
+        ui->shellInput->setText(ui->shellInput->toPlainText() + str);
+        ui->window->repaint();
+    }
     return 0;
 }
 
@@ -776,22 +789,33 @@ int main(int argc, char *argv[])
                 return 1;
             }
         }
+        else if (strcmp(argv[i], "-gui") == 0)
+        {
+            gui_mode = true;
+        }
         else
         {
             printf("Unknown option: %s\n", argv[i]);
             return 1;
         }
     }
-    QApplication app(argc, argv);
-    ui = new FtpClientUI();
-    ui->getWindow()->show();
-    ui->serverAddrInput->setText(addr);
-    ui->serverPortInput->setText(port);
     // get /home/username/Downloads
     char home[128];
     strcpy(home, getenv("HOME"));
     snprintf(local_dir, sizeof(local_dir), "%s/Downloads", home);
-    ui->clientPathInput->setText(local_dir);
-    list_local();
-    return app.exec();
+
+    if (gui_mode)
+    {
+        QApplication app(argc, argv);
+        ui = new FtpClientUI();
+        ui->getWindow()->show();
+        ui->serverAddrInput->setText(addr);
+        ui->serverPortInput->setText(port);
+        ui->clientPathInput->setText(local_dir);
+        gui_list_local();
+        return app.exec();
+    }
+    else
+    {
+    }
 }
