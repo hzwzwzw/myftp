@@ -48,18 +48,18 @@ void list_local();
 void set_data_socket();
 void connect_to_data_socket();
 
-void error(const char *message, const char *strsrror, int errorno)
+void error(const char *message, const char *strerror_, int errorno)
 {
     QMessageBox::critical(ui->getWindow(), "Error", message);
-    printf("Error: %s, %s(%d)\r\n", message, strerror, errorno);
+    printf("Error: %s, %s (%d)\r\n", message, strerror_, errorno);
 }
 
 void cwd_server()
 {
     char path[256];
     strcpy(path, ui->serverPathInput->text().toUtf8().data());
-    char buf[256];
-    sprintf(buf, "CWD %s\r\n", path);
+    char buf[256 + 8];
+    snprintf(buf, sizeof(buf), "CWD %s\r\n", path);
     write(state.sockfd, buf, strlen(buf));
     read_reply(buf, 256);
     list_server();
@@ -82,11 +82,11 @@ void cwd_local()
 {
     char path[256];
     strcpy(path, ui->clientPathInput->text().toUtf8().data());
-    char tmp[256];
+    char tmp[512 + 2];
     if (path[0] == '/')
         strcpy(tmp, path);
     else
-        sprintf(tmp, "%s/%s", local_dir, path);
+        snprintf(tmp, sizeof(tmp), "%s/%s", local_dir, path);
 
     char real[256];
     if (realpath(tmp, real) == NULL)
@@ -98,7 +98,7 @@ void cwd_local()
     struct stat st;
     if (stat(real, &st) == -1)
     {
-        printf("Error stat.", strerror(errno), errno);
+        error("Error stat()\r\n", strerror(errno), errno);
         return;
     }
     if (!S_ISDIR(st.st_mode))
@@ -145,9 +145,11 @@ void download()
 {
     set_data_socket();
     QString filename = ui->serverFileTable->item(ui->serverFileTable->currentRow(), 0)->text();
+    char filename_[256];
+    strcpy(filename_, filename.toUtf8().data());
     // check if same filename exists in local
-    char path[256];
-    sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
+    char path[512 + 2];
+    snprintf(path, sizeof(path), "%s/%s", local_dir, filename_);
     struct stat st;
     bool rest = false;
     if (stat(path, &st) != -1)
@@ -311,8 +313,8 @@ void upload()
         continueread = false;
     }
     ui->window->repaint();
-    char path[256];
-    sprintf(path, "%s/%s", local_dir, filename.toUtf8().data());
+    char path[512 + 2];
+    snprintf(path, sizeof(path), "%s/%s", local_dir, filename.toUtf8().data());
     FILE *file = fopen(path, "rb");
     if (file == NULL)
     {
@@ -399,8 +401,8 @@ void button_server_enter_clicked()
 
 void button_server_parent_clicked()
 {
-    char path[256];
-    sprintf(path, "%s/..", state.dir);
+    char path[256 + 5];
+    snprintf(path, sizeof(path), "%s/..", state.dir);
     ui->serverPathInput->setText(path);
     cwd_server();
 }
@@ -412,8 +414,8 @@ void button_client_enter_clicked()
 
 void button_client_parent_clicked()
 {
-    char path[256];
-    sprintf(path, "%s/..", local_dir);
+    char path[256 + 5];
+    snprintf(path, sizeof(path), "%s/..", local_dir);
     ui->clientPathInput->setText(path);
     cwd_local();
 }
@@ -423,8 +425,8 @@ void button_server_doubleclicked(int row, int column)
     QString filename = ui->serverFileTable->item(row, 0)->text();
     if (ui->serverFileTable->item(row, 3)->text()[0] == 'd')
     {
-        char tmp[256];
-        sprintf(tmp, "%s/%s", state.dir, filename.toUtf8().data());
+        char tmp[512 + 2];
+        snprintf(tmp, sizeof(tmp), "%s/%s", state.dir, filename.toUtf8().data());
         ui->serverPathInput->setText(tmp);
         cwd_server();
     }
@@ -439,8 +441,8 @@ void button_client_doubleclicked(int row, int column)
     QString filename = ui->clientFileTable->item(row, 0)->text();
     if (ui->clientFileTable->item(row, 3)->text()[0] == 'd')
     {
-        char tmp[256];
-        sprintf(tmp, "%s/%s", local_dir, filename.toUtf8().data());
+        char tmp[512 + 2];
+        snprintf(tmp, sizeof(tmp), "%s/%s", local_dir, filename.toUtf8().data());
         ui->clientPathInput->setText(tmp);
         cwd_local();
     }
@@ -663,7 +665,7 @@ void list_server()
 
 void list_local()
 {
-    char command[256];
+    char command[256 + 10];
     sprintf(command, "ls -l %s", local_dir);
     FILE *fp = popen(command, "r");
     if (fp == NULL)
@@ -750,9 +752,9 @@ int main(int argc, char *argv[])
     ui = new FtpClientUI();
     ui->getWindow()->show();
     // get /home/username/Downloads
-    char home[256];
+    char home[128];
     strcpy(home, getenv("HOME"));
-    sprintf(local_dir, "%s/Downloads", home);
+    snprintf(local_dir, sizeof(local_dir), "%s/Downloads", home);
     ui->clientPathInput->setText(local_dir);
     list_local();
     return app.exec();

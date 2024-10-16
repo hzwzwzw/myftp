@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include <unistd.h>
 #include <errno.h>
@@ -10,6 +11,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #define STATUS_user_not_logged_in 0
 #define STATUS_user_need_password 1
@@ -69,6 +71,7 @@ int readMsg(int fd, char *sentence, int *len)
 	sentence[p - 1] = '\0';
 	if (len != NULL)
 		*len = p - 1;
+	return 0;
 }
 
 int writeMsg(int fd, char *sentence, int len)
@@ -90,6 +93,7 @@ int writeMsg(int fd, char *sentence, int len)
 			p += n;
 		}
 	}
+	return 0;
 }
 
 int strip(char *sentence, int len)
@@ -128,17 +132,18 @@ int arguments_break(char *arguments, char *next)
 
 int getrealdir(char *dir, char *realdir)
 {
-	char tmp[256];
+	char tmp[512];
 	if (dir[0] == '/')
 	{
-		sprintf(tmp, "%s%s", rootdir, dir);
+		snprintf(tmp, sizeof(tmp), "%s%s", rootdir, dir);
 	}
 	else
 	{
-		sprintf(tmp, "%s/%s", workdir, dir);
+		snprintf(tmp, sizeof(tmp), "%s/%s", workdir, dir);
 	}
 	realpath(tmp, realdir);
 	printf("dir: %s\ncombdir: %s\nrealdir: %s\n", dir, tmp, realdir);
+	return 0;
 }
 
 int checksubdir(char *dir)
@@ -169,7 +174,7 @@ int proc_USER(char *arguments)
 		if (strcmp(arguments, "anonymous") == 0)
 		{
 			status_user = STATUS_user_need_password;
-			user_name = malloc(10 * sizeof(char));
+			user_name = malloc(10);
 			strcpy(user_name, "anonymous");
 			writeMsg(connfd, "331 Guest login ok, send your complete e-mail address as password.\r\n", 0);
 		}
@@ -179,6 +184,7 @@ int proc_USER(char *arguments)
 			writeMsg(connfd, "530 It is not a valid user.\r\n", 0);
 		}
 	}
+	return 0;
 }
 
 int proc_PASS(char *arguments)
@@ -199,6 +205,7 @@ int proc_PASS(char *arguments)
 			writeMsg(connfd, welcome, 0);
 		}
 	}
+	return 0;
 }
 
 int proc_PORT(char *argumemnts)
@@ -224,9 +231,10 @@ int proc_PORT(char *argumemnts)
 		return 1;
 	}
 	writeMsg(connfd, "200 PORT command successful.\r\n", 0);
+	return 0;
 }
 
-int proc_PASV(char *arguments)
+int proc_PASV()
 {
 	mode_transfer = MODE_transfer_pasv;
 	int sockfd_data;
@@ -255,6 +263,7 @@ int proc_PASV(char *arguments)
 	}
 	data_listen = sockfd_data;
 	writeMsg(connfd, msg, 0);
+	return 0;
 }
 
 int proc_RETR(char *arguments)
@@ -298,8 +307,8 @@ int proc_RETR(char *arguments)
 		writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 		return -1;
 	}
-	char filename[256];
-	sprintf(filename, "%s/%s", workdir, arguments);
+	char filename[512 + 2];
+	snprintf(filename, sizeof(filename), "%s/%s", workdir, arguments);
 	FILE *filefp;
 
 	if ((filefp = fopen(filename, "r")) == NULL)
@@ -336,6 +345,7 @@ int proc_RETR(char *arguments)
 	rest_index = 0;
 	fclose(filefp);
 	close(datafd);
+	return 0;
 }
 
 int proc_STOR(char *arguments, int appe)
@@ -379,8 +389,8 @@ int proc_STOR(char *arguments, int appe)
 		writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 		return -1;
 	}
-	char filename[256];
-	sprintf(filename, "%s/%s", workdir, arguments);
+	char filename[512 + 2];
+	snprintf(filename, sizeof(filename), "%s/%s", workdir, arguments);
 	FILE *filefp;
 	if (appe)
 	{
@@ -408,7 +418,7 @@ int proc_STOR(char *arguments, int appe)
 	long size = 0;
 	while ((n = read(datafd, buffer, 8192)) > 0)
 	{
-		if (fwrite(buffer, 1, n, filefp) == -1)
+		if (fwrite(buffer, 1, n, filefp) != 0)
 		{
 			printf("Error fwrite(): %s(%d)\r\n", strerror(errno), errno);
 			return 1;
@@ -419,9 +429,10 @@ int proc_STOR(char *arguments, int appe)
 	writeMsg(connfd, msg, 0);
 	fclose(filefp);
 	close(datafd);
+	return 0;
 }
 
-int proc_PWD(char *arguments)
+int proc_PWD()
 {
 	if (status_user != STATUS_user_logged_in)
 	{
@@ -434,7 +445,9 @@ int proc_PWD(char *arguments)
 	else
 		sprintf(msg, "257 current directory is \"%s\".\r\n", workdir + strlen(rootdir));
 	writeMsg(connfd, msg, 0);
+	return 0;
 }
+
 int proc_CWD(char *arguments)
 {
 	if (status_user != STATUS_user_logged_in)
@@ -465,7 +478,9 @@ int proc_CWD(char *arguments)
 			writeMsg(connfd, "250 Directory successfully changed.\r\n", 0);
 		}
 	}
+	return 0;
 }
+
 int proc_MKD(char *arguments)
 {
 	if (status_user != STATUS_user_logged_in)
@@ -490,7 +505,9 @@ int proc_MKD(char *arguments)
 			writeMsg(connfd, "257 Directory created.\r\n", 0);
 		}
 	}
+	return 0;
 }
+
 int proc_RMD(char *arguments)
 {
 	if (status_user != STATUS_user_logged_in)
@@ -515,8 +532,10 @@ int proc_RMD(char *arguments)
 			writeMsg(connfd, "250 Directory deleted.\r\n", 0);
 		}
 	}
+	return 0;
 }
-int proc_LIST(char *arguments)
+
+int proc_LIST()
 {
 	if (status_user != STATUS_user_logged_in)
 	{
@@ -563,8 +582,8 @@ int proc_LIST(char *arguments)
 	// send list
 	char buffer[8192];
 	memset(buffer, 0, 8192);
-	char command[256];
-	sprintf(command, "ls -l %s", workdir);
+	char command[256 + 10];
+	snprintf(command, sizeof(command), "ls -l %s", workdir);
 	FILE *filefp = popen(command, "r");
 	int n;
 	while ((n = fread(buffer, 1, 8192, filefp)) > 0)
@@ -578,6 +597,7 @@ int proc_LIST(char *arguments)
 	writeMsg(connfd, "226 Directory send OK.\r\n", 0);
 	pclose(filefp);
 	close(datafd);
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -586,7 +606,7 @@ int main(int argc, char **argv)
 	printf("*FTP SERVER VIEW*\n");
 	printf("*****************\r\n");
 	char sentence[8192];
-	int p;
+	// int p;
 	int len;
 
 	// 创建socket
@@ -680,7 +700,7 @@ int main(int argc, char **argv)
 				}
 				else if (!strcmp(command, "PASV"))
 				{
-					proc_PASV(argument);
+					proc_PASV();
 				}
 				else if (!strcmp(command, "RETR"))
 				{
@@ -697,7 +717,7 @@ int main(int argc, char **argv)
 				}
 				else if (!strcmp(command, "PWD"))
 				{
-					proc_PWD(argument);
+					proc_PWD();
 				}
 				else if (!strcmp(command, "CWD"))
 				{
@@ -713,7 +733,7 @@ int main(int argc, char **argv)
 				}
 				else if (!strcmp(command, "LIST"))
 				{
-					proc_LIST(argument);
+					proc_LIST();
 				}
 				else if (!strcmp(command, "SYST"))
 				{
