@@ -2,6 +2,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <signal.h>
+
 #include <unistd.h>
 #include <errno.h>
 
@@ -600,6 +602,14 @@ int proc_LIST()
 	return 0;
 }
 
+void quit(int sig)
+{
+	printf("Server is shutting down...(%d)\r\n", sig);
+	close(connfd);
+	close(listenfd);
+	exit(0);
+}
+
 int main(int argc, char **argv)
 {
 	printf("*****************\n");
@@ -673,6 +683,8 @@ int main(int argc, char **argv)
 		printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
 		return 1;
 	}
+
+	signal(SIGINT, quit);
 
 	// 持续监听连接请求
 	while (1)
