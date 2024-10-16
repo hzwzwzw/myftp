@@ -1,3 +1,6 @@
+#include <iostream>
+#include <string>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -38,7 +41,7 @@ public:
     char dir[256];
 };
 
-bool gui_mode = true;
+bool gui_mode = false;
 
 char local_dir[256];
 
@@ -146,7 +149,6 @@ int connect_to_server(char *ip_addr, int port)
 
 void download(QString filename, bool rest)
 {
-    set_data_socket();
     char path[512 + 2];
     snprintf(path, sizeof(path), "%s/%s", local_dir, filename.toUtf8().data());
     char buf[256];
@@ -252,16 +254,15 @@ void gui_download()
             }
         }
     }
+    set_data_socket();
     download(filename, rest);
     gui_cwd_local();
 }
 
-void upload(QString filename, long appe_begin)
+void upload(QString filename, bool appe, long appe_begin)
 {
-    set_data_socket();
     char buf[256];
-
-    if (appe_begin == 0)
+    if (!appe)
     {
         sprintf(buf, "STOR %s\r\n", filename.toUtf8().data());
     }
@@ -285,7 +286,7 @@ void upload(QString filename, long appe_begin)
         error("Error fopen.", strerror(errno), errno);
         return;
     }
-    if (appe_begin == 0)
+    if (appe)
     {
         fseek(file, appe_begin, SEEK_SET);
     }
@@ -324,6 +325,7 @@ void upload(QString filename, long appe_begin)
 void gui_upload()
 {
     QString filename = ui->clientFileTable->item(ui->clientFileTable->currentRow(), 0)->text();
+    bool appe = false;
     long appe_begin = 0;
     // check if same filename exists in server
     for (int i = 0; i < ui->serverFileTable->rowCount(); i++)
@@ -358,12 +360,14 @@ void gui_upload()
                     {
                         return;
                     }
+                    appe = true;
                     appe_begin = server_file_size;
                 }
             }
         }
     }
-    upload(filename, appe_begin);
+    set_data_socket();
+    upload(filename, appe, appe_begin);
     gui_cwd_server();
 }
 
@@ -501,34 +505,41 @@ void getLocalIP(char *address)
     // strcpy(addr, localIP.toUtf8().data());
 }
 
-void set_port()
+void set_port(int specified_port = 0)
 {
     char ip[16];
     getLocalIP(ip);
     int port = 20000;
-    for (; port < 65536; port++)
+    if (specified_port != 0)
     {
-        if ((state.port_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+        port = specified_port;
+    }
+    else
+    {
+        for (; port < 65536; port++)
         {
-            printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
-            continue;
+            if ((state.port_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+            {
+                printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+                continue;
+            }
+            struct sockaddr_in addr_data;
+            memset(&addr_data, 0, sizeof(addr_data));
+            addr_data.sin_family = AF_INET;
+            addr_data.sin_port = htons(port);
+            addr_data.sin_addr.s_addr = inet_addr(ip);
+            if (bind(state.port_listen, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
+            {
+                printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
+                continue;
+            }
+            if (listen(state.port_listen, 10) == -1)
+            {
+                printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+                continue;
+            }
+            break;
         }
-        struct sockaddr_in addr_data;
-        memset(&addr_data, 0, sizeof(addr_data));
-        addr_data.sin_family = AF_INET;
-        addr_data.sin_port = htons(port);
-        addr_data.sin_addr.s_addr = inet_addr(ip);
-        if (bind(state.port_listen, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
-        {
-            printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
-            continue;
-        }
-        if (listen(state.port_listen, 10) == -1)
-        {
-            printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
-            continue;
-        }
-        break;
     }
     printf("PORT command successful at %s:%d.\r\n", ip, port);
     char buf[256];
@@ -612,19 +623,16 @@ void set_data_socket()
     }
 }
 
-void gui_list_server()
+QString list_server()
 {
-    set_data_socket();
     write(state.sockfd, "LIST\r\n", 6);
     connect_to_data_socket();
     char buf[8192];
     read_reply(buf, 8192);
+    QString qs = "";
     if (strncmp(buf, "150", 3) == 0)
     {
-        ui->serverFileTable->clear();
-        ui->serverFileTable->setRowCount(0);
         char buffer[8192];
-        QString qs = "";
         while (1)
         {
             memset(buffer, 0, 8192);
@@ -632,7 +640,8 @@ void gui_list_server()
             if (n < 0)
             {
                 error("Error read.", strerror(errno), errno);
-                return;
+                qs = "";
+                return qs;
             }
             else if (n == 0)
             {
@@ -646,28 +655,41 @@ void gui_list_server()
         }
         close(state.sockfd_data);
         read_reply(buf, 8192);
-        QStringList lines = qs.split("\n");
-        for (const QString &line : lines)
+    }
+    return qs;
+}
+
+void gui_list_server()
+{
+    set_data_socket();
+    QString qs = list_server();
+    if (qs == "")
+    {
+        return;
+    }
+    ui->serverFileTable->clear();
+    ui->serverFileTable->setRowCount(0);
+    QStringList lines = qs.split("\n");
+    for (const QString &line : lines)
+    {
+        if (!line.isEmpty())
         {
-            if (!line.isEmpty())
-            {
-                if (line.indexOf("total") == 0)
-                    continue;
+            if (line.indexOf("total") == 0)
+                continue;
 
-                QStringList parts = line.split(QRegularExpression("\\s+"));
+            QStringList parts = line.split(QRegularExpression("\\s+"));
 
-                ui->serverFileTable->insertRow(ui->serverFileTable->rowCount());
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 0, new QTableWidgetItem(parts[8]));
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 1, new QTableWidgetItem(parts[4]));
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 2, new QTableWidgetItem(parts[5] + " " + parts[6] + " " + parts[7]));
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 3, new QTableWidgetItem(parts[0]));
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 4, new QTableWidgetItem(parts[1]));
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 5, new QTableWidgetItem(parts[2]));
-                ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 6, new QTableWidgetItem(parts[3]));
+            ui->serverFileTable->insertRow(ui->serverFileTable->rowCount());
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 0, new QTableWidgetItem(parts[8]));
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 1, new QTableWidgetItem(parts[4]));
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 2, new QTableWidgetItem(parts[5] + " " + parts[6] + " " + parts[7]));
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 3, new QTableWidgetItem(parts[0]));
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 4, new QTableWidgetItem(parts[1]));
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 5, new QTableWidgetItem(parts[2]));
+            ui->serverFileTable->setItem(ui->serverFileTable->rowCount() - 1, 6, new QTableWidgetItem(parts[3]));
 
-                QStringList title = {"Name", "Size", "Time", "Permission", "Type", "Owner", "Group"};
-                ui->serverFileTable->setHorizontalHeaderLabels(title);
-            }
+            QStringList title = {"Name", "Size", "Time", "Permission", "Type", "Owner", "Group"};
+            ui->serverFileTable->setHorizontalHeaderLabels(title);
         }
     }
 }
@@ -740,17 +762,12 @@ int read_reply(char *str, int max_len)
         {
             p += n;
             while (str[p - 1] == 0)
-            {
                 p--;
-            }
-            if (str[p - 1] == '\n')
-            {
+            if (str[p] == 0)
                 break;
-            }
         }
     }
-    str[p - 1] = 0;
-    printf("FROM SERVER: %s \r\n", str);
+    printf("%s", str);
     if (gui_mode)
     {
         ui->shellInput->setText(ui->shellInput->toPlainText() + str);
@@ -817,5 +834,99 @@ int main(int argc, char *argv[])
     }
     else
     {
+        if (connect_to_server(addr, atoi(port)) != 0)
+        {
+            return 1;
+        }
+        // printf("\n");
+        char buf[256];
+        bool rest = false;
+        while (true)
+        {
+            memset(buf, 0, 256);
+            std::cout << "ftp> ";
+            std::cin.getline(buf, sizeof(buf));
+            if (buf == "exit")
+            {
+                break;
+            }
+            char command[256], argument[256];
+            memset(command, 0, 256);
+            memset(argument, 0, 256);
+            sscanf(buf, "%s %s", command, argument);
+            // some special commands needs extra process or redirect
+            if (strcmp(command, "RETR") == 0)
+            {
+                download(argument, rest);
+                rest = false;
+            }
+            else if (strcmp(command, "STOR") == 0)
+            {
+                upload(argument, false, 0);
+            }
+            else if (strcmp(command, "PORT") == 0)
+            {
+                if (strlen(argument) != 0)
+                {
+                    int port = atoi(argument);
+                    set_port(port);
+                }
+                else
+                {
+                    set_port();
+                }
+            }
+            else if (strcmp(command, "PASV") == 0)
+            {
+                set_pasv();
+            }
+            else if (strcmp(command, "REST") == 0)
+            {
+                write(state.sockfd, buf, strlen(buf));
+                write(state.sockfd, "\r\n", 2);
+                memset(buf, 0, 256);
+                read_reply(buf, 256);
+                // printf("\r\n");
+                rest = true;
+            }
+            else if (strcmp(command, "APPE") == 0)
+            {
+                upload(argument, true, 0);
+            }
+            else if (strcmp(command, "LIST") == 0)
+            {
+                list_server();
+            }
+            else
+            {
+                write(state.sockfd, buf, strlen(buf));
+                write(state.sockfd, "\r\n", 2);
+                bool finished = false;
+                bool first = true;
+                do
+                {
+                    memset(buf, 0, 256);
+                    read_reply(buf, sizeof(buf));
+                    // find if output finished
+                    if (first && buf[3] == ' ')
+                    {
+                        break;
+                    }
+                    for (int i = 0; buf[i] && buf[i + 4]; i++)
+                    {
+                        if (buf[i] == '\n' && buf[i + 4] == ' ')
+                        {
+                            finished = true;
+                            break;
+                        }
+                    }
+                    if (buf[strlen(buf) - 1] == '\n')
+                    {
+                        first = true;
+                    }
+                } while (!finished);
+                // printf("\r\n");
+            }
+        }
     }
 }
