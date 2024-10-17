@@ -84,7 +84,7 @@ int writeMsg(int fd, char *sentence, int len)
 	int p = 0;
 	while (p < len)
 	{
-		int n = write(fd, sentence + p, len + 1 - p);
+		int n = write(fd, sentence + p, len - p);
 		if (n < 0)
 		{
 			printf("Error write(): %s(%d)\r\n", strerror(errno), errno);
@@ -95,6 +95,7 @@ int writeMsg(int fd, char *sentence, int len)
 			p += n;
 		}
 	}
+
 	return 0;
 }
 
@@ -329,7 +330,7 @@ int proc_RETR(char *arguments)
 	long file_size = ftell(filefp);
 	fseek(filefp, rest_index, SEEK_SET);
 	char msg[256];
-	sprintf(msg, "150-Opening BINARY mode data connection for %s (%ld bytes).\r\n", arguments, file_size);
+	sprintf(msg, "150 Opening BINARY mode data connection for %s (%ld bytes).\r\n", arguments, file_size);
 	writeMsg(connfd, msg, 0);
 	// send file
 	char buffer[8192];
@@ -411,7 +412,7 @@ int proc_STOR(char *arguments, int appe)
 		}
 	}
 	char msg[256];
-	sprintf(msg, "150-Opening BINARY mode data connection for %s.\r\n", arguments);
+	sprintf(msg, "150 Opening BINARY mode data connection for %s.\r\n", arguments);
 	writeMsg(connfd, msg, 0);
 	// receive file
 	char buffer[8192];
@@ -420,7 +421,7 @@ int proc_STOR(char *arguments, int appe)
 	long size = 0;
 	while ((n = read(datafd, buffer, 8192)) > 0)
 	{
-		if (fwrite(buffer, 1, n, filefp) != 0)
+		if (fwrite(buffer, 1, n, filefp) < 0)
 		{
 			printf("Error fwrite(): %s(%d)\r\n", strerror(errno), errno);
 			return 1;
@@ -667,7 +668,7 @@ int main(int argc, char **argv)
 	// 设置本机的ip和port
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = port;
+	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
 
 	// 将本机的ip和port与socket绑定

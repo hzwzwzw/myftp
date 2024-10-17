@@ -2,5 +2,6 @@
     "files.associations": {
         "in.h": "c",
         "string.h": "c"
-    }
+    },
+    "cmake.sourceDirectory": "/home/kirotta/ftp/tcp/client_gui"
 }

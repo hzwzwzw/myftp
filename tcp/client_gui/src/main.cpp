@@ -129,7 +129,7 @@ int connect_to_server(char *ip_addr, int port)
     // 设置目标主机的ip和port
     memset(&state.addr, 0, sizeof(state.addr));
     state.addr.sin_family = AF_INET;
-    state.addr.sin_port = port;
+    state.addr.sin_port = htons(port);
     if (inet_pton(AF_INET, ip_addr, &state.addr.sin_addr) <= 0)
     { // 转换ip地址:点分十进制-->二进制
         error("Error inet_pton.", strerror(errno), errno);
