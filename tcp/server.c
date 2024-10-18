@@ -162,7 +162,7 @@ int checksubdir(char *dir)
 
 int proc_USER(char *arguments)
 {
-	if (status_user != STATUS_user_not_logged_in)
+	if (status_user == STATUS_user_logged_in)
 	{
 		writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
 	}
@@ -196,8 +196,12 @@ int proc_PASS(char *arguments)
 	{
 		writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
 	}
-	else if (status_user == STATUS_user_need_password)
+	else
 	{
+		if (strlen(arguments) == 0)
+		{
+			writeMsg(connfd, "501 Syntax error in parameters or arguments.\r\n", 0);
+		}
 		if (strcmp(user_name, "anonymous") == 0)
 		{
 			user_email = malloc(strlen(arguments) * sizeof(char));
@@ -221,6 +225,14 @@ int proc_PORT(char *argumemnts)
 	mode_transfer = MODE_transfer_port;
 	int parameter[6];
 	sscanf(argumemnts, "%d,%d,%d,%d,%d,%d", &parameter[0], &parameter[1], &parameter[2], &parameter[3], &parameter[4], &parameter[5]);
+	for (int i = 0; i < 6; i++)
+	{
+		if (parameter[i] < 0 || parameter[i] > 255)
+		{
+			writeMsg(connfd, "501 Syntax error in parameters or arguments.\r\n", 0);
+			return 1;
+		}
+	}
 	char ip[16];
 	sprintf(ip, "%d.%d.%d.%d", parameter[0], parameter[1], parameter[2], parameter[3]);
 	int port = parameter[4] * 256 + parameter[5];
@@ -231,6 +243,7 @@ int proc_PORT(char *argumemnts)
 	if (inet_pton(AF_INET, ip, &port_addr_data.sin_addr) <= 0)
 	{
 		printf("Error inet_pton(): %s(%d)\r\n", strerror(errno), errno);
+		writeMsg(connfd, "502 Command not implemented.\r\n", 0);
 		return 1;
 	}
 	writeMsg(connfd, "200 PORT command successful.\r\n", 0);
@@ -244,6 +257,7 @@ int proc_PASV()
 	if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
 	{
 		printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+		writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 		return 1;
 	}
 	struct sockaddr_in addr_data;
@@ -258,6 +272,7 @@ int proc_PASV()
 			if (listen(sockfd_data, 10) == -1)
 			{
 				printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+				writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 				return 1;
 			}
 			sprintf(msg, "227 Entering Passive Mode (%s,%d,%d)\r\n", local_addr, i / 256, i % 256);
@@ -288,6 +303,7 @@ int proc_RETR(char *arguments)
 		if ((datafd = accept(data_listen, NULL, NULL)) == -1)
 		{
 			printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 	}
@@ -296,11 +312,13 @@ int proc_RETR(char *arguments)
 		if ((datafd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
 		{
 			printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 		if (connect(datafd, (struct sockaddr *)&port_addr_data, sizeof(port_addr_data)) < 0)
 		{
 			printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 	}
@@ -341,6 +359,7 @@ int proc_RETR(char *arguments)
 		if (write(datafd, buffer, n) == -1)
 		{
 			printf("Error write(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "426 Connection closed; transfer aborted.\r\n", 0);
 			return 1;
 		}
 	}
@@ -370,6 +389,7 @@ int proc_STOR(char *arguments, int appe)
 		if ((datafd = accept(data_listen, NULL, NULL)) == -1)
 		{
 			printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 	}
@@ -378,11 +398,13 @@ int proc_STOR(char *arguments, int appe)
 		if ((datafd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
 		{
 			printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 		if (connect(datafd, (struct sockaddr *)&port_addr_data, sizeof(port_addr_data)) < 0)
 		{
 			printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 	}
@@ -424,6 +446,7 @@ int proc_STOR(char *arguments, int appe)
 		if (fwrite(buffer, 1, n, filefp) < 0)
 		{
 			printf("Error fwrite(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "426 Connection closed; transfer aborted.\r\n", 0);
 			return 1;
 		}
 		size += n;
@@ -557,6 +580,7 @@ int proc_LIST()
 		if ((datafd = accept(data_listen, NULL, NULL)) == -1)
 		{
 			printf("Error accept(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 	}
@@ -565,11 +589,13 @@ int proc_LIST()
 		if ((datafd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
 		{
 			printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 		if (connect(datafd, (struct sockaddr *)&port_addr_data, sizeof(port_addr_data)) < 0)
 		{
 			printf("Error connect(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
 			return 1;
 		}
 	}
@@ -594,6 +620,7 @@ int proc_LIST()
 		if (write(datafd, buffer, n) == -1)
 		{
 			printf("Error write(): %s(%d)\r\n", strerror(errno), errno);
+			writeMsg(connfd, "426 Connection closed; transfer aborted.\r\n", 0);
 			return 1;
 		}
 	}
