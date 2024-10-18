@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include <unistd.h>
 #include <errno.h>
@@ -466,21 +467,21 @@ void pasv_checked()
 void getLocalIP(char *address)
 {
     // called after state.addr is inited.
-    inet_ntop(AF_INET, &state.addr.sin_addr, address, INET_ADDRSTRLEN);
-    // printf("Local IP: %s\n", address);
-    // QString localIP = "";
-    // QList<QHostAddress> list = QNetworkInterface::allAddresses();
-    // for (int nIter = 0; nIter < list.count(); nIter++)
-    // {
-    //     if (!list[nIter].isLoopback() &&
-    //         list[nIter].protocol() == QAbstractSocket::IPv4Protocol &&
-    //         !list[nIter].isLinkLocal())
-    //     {
-    //         localIP = list[nIter].toString();
-    //         printf("Local IP: %s\n", localIP.toUtf8().data());
-    //     }
-    // }
-    // strcpy(addr, localIP.toUtf8().data());
+    // inet_ntop(AF_INET, &state.addr.sin_addr, address, INET_ADDRSTRLEN);
+
+    // 获取服务器的IP地址
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET; // 只获取IPv4地址
+    hints.ai_socktype = SOCK_STREAM;
+
+    getaddrinfo(hostname, NULL, &hints, &res);
+
+    struct sockaddr_in *addr = (struct sockaddr_in *)res->ai_addr;
+    strcpy(address, inet_ntoa(addr->sin_addr));
 }
 
 void set_port(char *addr = NULL, int specified_port = 0)

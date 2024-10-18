@@ -14,6 +14,11 @@ add_executable(${PROJECT_NAME}
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "client")
 
+# add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy
+#     $<TARGET_FILE:${PROJECT_NAME}> /client
+# )
+
 # 链接 Qt6 的库到可执行文件
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets Qt6::Network)
 
