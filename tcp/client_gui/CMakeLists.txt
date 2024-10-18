@@ -11,7 +11,8 @@ aux_source_directory(./src srcs)
 # 添加可执行文件
 add_executable(${PROJECT_NAME} 
     ${srcs} 
-) 
+)
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "client")
 
 # 链接 Qt6 的库到可执行文件
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Widgets Qt6::Network)

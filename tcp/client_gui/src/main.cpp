@@ -57,7 +57,7 @@ void error(const char *message, const char *strerror_, int errorno)
 {
     if (gui_mode)
         QMessageBox::critical(ui->getWindow(), "Error", message);
-    printf("Error: %s, %s (%d)\r\n", message, strerror_, errorno);
+    fprintf(stderr, "Error: %s, %s (%d)\r\n", message, strerror_, errorno);
 }
 
 void gui_cwd_server()
@@ -70,15 +70,14 @@ void gui_cwd_server()
     read_reply(buf, 256);
     gui_list_server();
     // use PWD to get current directory
-    write(state.sockfd, "PWD\r\n", 5);
+    write(state.sockfd, "PWD\r\n", strlen("PWD\r\n"));
     read_reply(buf, 256);
     if (strncmp(buf, "257", 3) == 0)
     {
         char *dir;
         dir = strstr(buf, "\"") + 1;
         dir[strstr(dir, "\"") - dir] = 0;
-        // ascii to utf-8
-        printf("Current directory: %s\r\n", dir);
+        // printf("Current directory: %s\r\n", dir);
         ui->serverPathInput->setText(dir);
         strcpy(state.dir, dir);
     }
@@ -155,12 +154,7 @@ void download(QString filename, bool rest)
     sprintf(buf, "RETR %s\r\n", filename.toUtf8().data());
     write(state.sockfd, buf, strlen(buf));
     connect_to_data_socket();
-    bool continueread = true;
     read_reply(buf, 256);
-    if (buf[3] == ' ')
-    {
-        continueread = false;
-    }
     FILE *file;
     if (!rest)
     {
@@ -196,15 +190,10 @@ void download(QString filename, bool rest)
     }
     fclose(file);
     close(state.sockfd_data);
-    while (continueread)
-    {
+    if (QString(buf).indexOf("\n22") == -1)
         read_reply(buf, 256);
-        if (buf[3] == ' ')
-        {
-            break;
-        }
-    }
-    printf("Transfer complete.\r\n");
+
+    // printf("Transfer complete.\r\n");
 }
 
 void gui_download()
@@ -272,12 +261,7 @@ void upload(QString filename, bool appe, long appe_begin)
     }
     write(state.sockfd, buf, strlen(buf));
     connect_to_data_socket();
-    bool continueread = true;
     read_reply(buf, 256);
-    if (buf[3] == ' ')
-    {
-        continueread = false;
-    }
     char path[512 + 2];
     snprintf(path, sizeof(path), "%s/%s", local_dir, filename.toUtf8().data());
     FILE *file = fopen(path, "rb");
@@ -311,15 +295,9 @@ void upload(QString filename, bool appe, long appe_begin)
     }
     fclose(file);
     close(state.sockfd_data);
-    while (continueread)
-    {
+    if (QString(buf).indexOf("\n22") == -1)
         read_reply(buf, 256);
-        if (buf[3] == ' ')
-        {
-            break;
-        }
-    }
-    printf("Transfer complete.\r\n");
+    // printf("Transfer complete.\r\n");
 }
 
 void gui_upload()
@@ -489,7 +467,7 @@ void getLocalIP(char *address)
 {
     // called after state.addr is inited.
     inet_ntop(AF_INET, &state.addr.sin_addr, address, INET_ADDRSTRLEN);
-    printf("Local IP: %s\n", address);
+    // printf("Local IP: %s\n", address);
     // QString localIP = "";
     // QList<QHostAddress> list = QNetworkInterface::allAddresses();
     // for (int nIter = 0; nIter < list.count(); nIter++)
@@ -505,24 +483,46 @@ void getLocalIP(char *address)
     // strcpy(addr, localIP.toUtf8().data());
 }
 
-void set_port(int specified_port = 0)
+void set_port(char *addr = NULL, int specified_port = 0)
 {
     char ip[16];
-    getLocalIP(ip);
+    if (addr == NULL)
+    {
+        getLocalIP(ip);
+    }
+    else
+    {
+        strcpy(ip, addr);
+    }
+    if ((state.port_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    {
+        error("Error socket(): %s(%d)\r\n", strerror(errno), errno);
+        return;
+    }
     int port = 20000;
     if (specified_port != 0)
     {
         port = specified_port;
+        struct sockaddr_in addr_data;
+        memset(&addr_data, 0, sizeof(addr_data));
+        addr_data.sin_family = AF_INET;
+        addr_data.sin_port = htons(port);
+        addr_data.sin_addr.s_addr = inet_addr(ip);
+        if (bind(state.port_listen, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
+        {
+            error("Error bind(): %s(%d)\r\n", strerror(errno), errno);
+            return;
+        }
+        if (listen(state.port_listen, 10) == -1)
+        {
+            error("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+            return;
+        }
     }
     else
     {
         for (; port < 65536; port++)
         {
-            if ((state.port_listen = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
-            {
-                printf("Error socket(): %s(%d)\r\n", strerror(errno), errno);
-                continue;
-            }
             struct sockaddr_in addr_data;
             memset(&addr_data, 0, sizeof(addr_data));
             addr_data.sin_family = AF_INET;
@@ -530,18 +530,17 @@ void set_port(int specified_port = 0)
             addr_data.sin_addr.s_addr = inet_addr(ip);
             if (bind(state.port_listen, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
             {
-                printf("Error bind(): %s(%d)\r\n", strerror(errno), errno);
+                error("Error bind(): %s(%d)\r\n", strerror(errno), errno);
                 continue;
             }
             if (listen(state.port_listen, 10) == -1)
             {
-                printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+                error("Error listen(): %s(%d)\r\n", strerror(errno), errno);
                 continue;
             }
             break;
         }
     }
-    printf("PORT command successful at %s:%d.\r\n", ip, port);
     char buf[256];
     char ip_comma[16];
     strcpy(ip_comma, ip);
@@ -555,12 +554,21 @@ void set_port(int specified_port = 0)
     sprintf(buf, "PORT %s,%d,%d\r\n", ip_comma, port / 256, port % 256);
     write(state.sockfd, buf, strlen(buf));
     read_reply(buf, 256);
-    printf("PORT command successful.\r\n");
+    if (strncmp(buf, "200", 3) == 0)
+    {
+        // printf("PORT command successful.\r\n");
+        state.mode_transfer = MODE_transfer_port;
+    }
+    else
+    {
+        error("Error PORT command.", buf, 0);
+        // TODO: EXCEPTION
+    }
 }
 
 void set_pasv()
 {
-    write(state.sockfd, "PASV\r\n", 6);
+    write(state.sockfd, "PASV\r\n", strlen("PASV\r\n"));
     char buf[8192];
     read_reply(buf, 8192);
     if (buf[0] == '5')
@@ -571,9 +579,18 @@ void set_pasv()
     if (strncmp(buf, "227", 3) == 0)
     {
         int temp[6];
-        sscanf(buf, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)", &temp[0], &temp[1], &temp[2], &temp[3], &temp[4], &temp[5]);
+        QString qs = buf;
+        int p1 = qs.indexOf('(');
+        int p2 = qs.indexOf(')');
+        qs = qs.mid(p1 + 1, p2 - p1 - 1);
+        QStringList parts = qs.split(",");
+        for (int i = 0; i < 6; i++)
+        {
+            temp[i] = parts[i].toInt();
+        }
         char ip[16];
         sprintf(ip, "%d.%d.%d.%d", temp[0], temp[1], temp[2], temp[3]);
+        // printf("PASV command successful at %s:%d.\r\n", ip, temp[4] * 256 + temp[5]);
         int port = temp[4] * 256 + temp[5];
         if ((state.sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         {
@@ -589,6 +606,7 @@ void set_pasv()
             return;
         }
     }
+    state.mode_transfer = MODE_transfer_pasv;
 }
 
 void connect_to_data_socket()
@@ -625,12 +643,12 @@ void set_data_socket()
 
 QString list_server()
 {
-    write(state.sockfd, "LIST\r\n", 6);
-    connect_to_data_socket();
+    write(state.sockfd, "LIST\r\n", strlen("LIST\r\n"));
     char buf[8192];
     read_reply(buf, 8192);
+    connect_to_data_socket();
     QString qs = "";
-    if (strncmp(buf, "150", 3) == 0)
+    if (strncmp(buf, "150", 3) == 0 || strncmp(buf, "125", 3) == 0)
     {
         char buffer[8192];
         while (1)
@@ -654,7 +672,11 @@ QString list_server()
             }
         }
         close(state.sockfd_data);
-        read_reply(buf, 8192);
+        // if 226 not received
+        if (QString(buf).indexOf("\n226") == -1)
+        {
+            read_reply(buf, 8192);
+        }
     }
     return qs;
 }
@@ -740,6 +762,7 @@ void gui_list_local()
 
 int read_reply(char *str, int max_len)
 {
+    memset(str, 0, max_len);
     if (state.sockfd == -1)
     {
         error("Error sockfd.", "", 0);
@@ -816,10 +839,11 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
-    // get /home/username/Downloads
-    char home[128];
-    strcpy(home, getenv("HOME"));
-    snprintf(local_dir, sizeof(local_dir), "%s/Downloads", home);
+    // // get /home/username/Downloads
+    // char home[128];
+    // strcpy(home, getenv("HOME"));
+    // snprintf(local_dir, sizeof(local_dir), "%s/Downloads", home);
+    getcwd(local_dir, sizeof(local_dir));
 
     if (gui_mode)
     {
@@ -844,7 +868,7 @@ int main(int argc, char *argv[])
         while (true)
         {
             memset(buf, 0, 256);
-            std::cout << "ftp> ";
+            // std::cout << "ftp> ";
             std::cin.getline(buf, sizeof(buf));
             if (buf == "exit")
             {
@@ -868,8 +892,12 @@ int main(int argc, char *argv[])
             {
                 if (strlen(argument) != 0)
                 {
-                    int port = atoi(argument);
-                    set_port(port);
+                    // like a,b,c,d,p,q
+                    int a, b, c, d, p, q;
+                    sscanf(argument, "%d,%d,%d,%d,%d,%d", &a, &b, &c, &d, &p, &q);
+                    char ip[16];
+                    snprintf(ip, 16, "%d.%d.%d.%d", a, b, c, d);
+                    set_port(ip, p * 256 + q);
                 }
                 else
                 {
@@ -883,7 +911,7 @@ int main(int argc, char *argv[])
             else if (strcmp(command, "REST") == 0)
             {
                 write(state.sockfd, buf, strlen(buf));
-                write(state.sockfd, "\r\n", 2);
+                write(state.sockfd, "\r\n", strlen("\r\n"));
                 memset(buf, 0, 256);
                 read_reply(buf, 256);
                 // printf("\r\n");
@@ -900,7 +928,7 @@ int main(int argc, char *argv[])
             else
             {
                 write(state.sockfd, buf, strlen(buf));
-                write(state.sockfd, "\r\n", 2);
+                write(state.sockfd, "\r\n", strlen("\r\n"));
                 bool finished = false;
                 bool first = true;
                 do
@@ -926,6 +954,10 @@ int main(int argc, char *argv[])
                     }
                 } while (!finished);
                 // printf("\r\n");
+                if (strcmp(command, "QUIT") == 0)
+                {
+                    break;
+                }
             }
         }
     }

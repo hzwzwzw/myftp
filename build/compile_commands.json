@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/kirotta/ftp/build",
+  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_WIDGETS_LIB -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -isystem /usr/include/x86_64-linux-gnu/qt6/QtNetwork -g -fPIC -std=c++17 -o CMakeFiles/client_gui.dir/src/main.cpp.o -c /home/kirotta/ftp/tcp/client_gui/src/main.cpp",
+  "file": "/home/kirotta/ftp/tcp/client_gui/src/main.cpp"
+}
+]

@@ -21,6 +21,7 @@ def read_client_output(client, output_queue: queue.Queue):
         if not line:
             break
         line = line.strip()
+        print("READ FROM CLIENT: ", line)
         if line: output_queue.put(line)
 
 
@@ -92,6 +93,7 @@ class TestClient:
 
     def check_client_output(self, expected_output):
         if self.client_output_queue.empty():
+            print("Client output queue is empty")
             return False
         client_output = self.client_output_queue.get(timeout=1)
         self.client_output_queue.task_done()
