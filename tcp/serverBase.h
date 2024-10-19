@@ -79,7 +79,7 @@ int writeMsg(int fd, char *sentence, int len)
             p += n;
         }
     }
-
+    printf("Sent: %s\r\n", sentence);
     return 0;
 }
 

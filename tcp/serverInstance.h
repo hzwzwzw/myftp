@@ -7,7 +7,7 @@ char *user_email;
 
 int listenfd, connfd; // 监听socket和连接socket不一样，后者用于数据传输
 struct sockaddr_in addr;
-int data_listen;
+int data_listen = -1;
 
 char rootdir[256] = "/home/ftp";
 char workdir[256] = "/home/ftp";
@@ -108,6 +108,15 @@ int proc_PORT(char *argumemnts)
 
 int proc_PASV()
 {
+    if (status_user != STATUS_user_logged_in)
+    {
+        writeMsg(connfd, "530 Please login with USER and PASS.\r\n", 0);
+        return -1;
+    }
+    if (data_listen != -1)
+    {
+        close(data_listen);
+    }
     mode_transfer = MODE_transfer_pasv;
     int sockfd_data;
     if ((sockfd_data = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
@@ -120,8 +129,9 @@ int proc_PASV()
     memset(&addr_data, 0, sizeof(addr_data));
     addr_data.sin_family = AF_INET;
     char msg[256];
-    for (int i = 20000; i < 65535; i++)
+    while (1)
     {
+        int i = rand() % 45535 + 20000;
         addr_data.sin_port = htons(i);
         if (bind(sockfd_data, (struct sockaddr *)&addr_data, sizeof(addr_data)) == 0)
         {
@@ -129,7 +139,7 @@ int proc_PASV()
             {
                 printf("Error listen(): %s(%d)\r\n", strerror(errno), errno);
                 writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
-                return 1;
+                continue;
             }
             char serverip[16];
             getIP(serverip);
@@ -438,6 +448,9 @@ int proc_LIST()
         writeMsg(connfd, "503 Bad sequence of commands.\r\n", 0);
         return -1;
     }
+    char msg[256];
+    sprintf(msg, "150 Here comes the directory listing.\r\n");
+    writeMsg(connfd, msg, 0);
     int datafd;
     if (mode_transfer == MODE_transfer_pasv)
     {
@@ -470,9 +483,6 @@ int proc_LIST()
         writeMsg(connfd, "425 Can't open data connection.\r\n", 0);
         return -1;
     }
-    char msg[256];
-    sprintf(msg, "150 Here comes the directory listing.\r\n");
-    writeMsg(connfd, msg, 0);
     // send list
     char buffer[8192];
     memset(buffer, 0, 8192);

@@ -206,6 +206,10 @@ void getLocalIP(char *address)
 
 void set_port(char *addr = NULL, int specified_port = 0)
 {
+    if (state.port_listen != -1)
+    {
+        close(state.port_listen);
+    }
     char ip[16];
     if (addr == NULL)
     {
@@ -251,12 +255,12 @@ void set_port(char *addr = NULL, int specified_port = 0)
             addr_data.sin_addr.s_addr = inet_addr(ip);
             if (bind(state.port_listen, (struct sockaddr *)&addr_data, sizeof(addr_data)) == -1)
             {
-                error("Error bind(): %s(%d)\r\n", strerror(errno), errno);
+                // error("Error bind(): %s(%d)\r\n", strerror(errno), errno);
                 continue;
             }
             if (listen(state.port_listen, 10) == -1)
             {
-                error("Error listen(): %s(%d)\r\n", strerror(errno), errno);
+                // error("Error listen(): %s(%d)\r\n", strerror(errno), errno);
                 continue;
             }
             break;
@@ -399,5 +403,8 @@ QString list_server()
             read_reply(buf, 8192);
         }
     }
+    shutdown(state.sockfd_data, SHUT_RDWR);
+    close(state.sockfd_data);
+
     return qs;
 }

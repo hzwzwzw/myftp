@@ -61,7 +61,8 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "variant": "cpp",
-        "serverinstance.h": "c"
+        "serverinstance.h": "c",
+        "qpushbutton": "cpp"
     },
     "cmake.sourceDirectory": "/home/kirotta/ftp/tcp/client_gui"
 }

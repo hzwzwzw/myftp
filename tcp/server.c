@@ -1,4 +1,5 @@
 #include "serverInstance.h"
+#include <time.h>
 
 void quit(int sig)
 {
@@ -107,7 +108,7 @@ int main(int argc, char **argv)
 		{
 
 			writeMsg(connfd, "220 ftp.ssast.org FTP server ready.\r\n", 0);
-
+			srand(time(NULL));
 			while (1) // 每次处理一条语句
 			{
 				memset(sentence, 0, 8192);

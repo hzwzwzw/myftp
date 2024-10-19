@@ -257,6 +257,8 @@ class TestClient:
         # PASV & RETR
         credit += 2 if self.test_pasv() else 0
         credit += 4 if self.test_retr("test_retr_2.data", self.server_root_dir+'/'+directory_name) else 0
+        credit += 2 if self.test_pasv() else 0
+        credit += 4 if self.test_retr("test_retr_2.data", self.server_root_dir+'/'+directory_name) else 0
         
         return credit
     

@@ -42,7 +42,7 @@ class TestServer:
 
     def test_public(self, port=21, directory='/tmp'):
         if port == 21 and directory == '/tmp':
-            server = subprocess.Popen(['sudo', './server'], stdout=subprocess.PIPE)
+            server = subprocess.Popen(['sudo', './server'])#, stdout=subprocess.PIPE)
         else:
             server = subprocess.Popen(['sudo', './server', '-port', '%d' % port, '-root', directory], stdout=subprocess.PIPE)
         time.sleep(0.1)
@@ -86,6 +86,16 @@ class TestServer:
             ftp2 = FTP()
             ftp2.connect('127.0.0.1', port)
             ftp2.login()
+            filename = 'test%d.data' % random.randint(100, 200)
+            self.create_test_file(filename)
+            if not ftp2.storbinary('STOR %s' % filename, open(filename, 'rb')).startswith('226'):
+                print('Bad response for STOR')
+            if not filecmp.cmp(filename, directory + '/' + filename):
+                print('Something wrong with STOR')
+            else:
+                self.credit += self.minor
+            os.remove(directory + '/' + filename)
+            os.remove(filename)
             filename = 'test%d.data' % random.randint(100, 200)
             self.create_test_file(filename)
             if not ftp2.storbinary('STOR %s' % filename, open(filename, 'rb')).startswith('226'):
