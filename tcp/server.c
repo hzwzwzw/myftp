@@ -85,6 +85,8 @@ int main(int argc, char **argv)
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY); // 监听"0.0.0.0"
+	int optval = 1;
+	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
 	// 将本机的ip和port与socket绑定
 	if (bind(listenfd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
