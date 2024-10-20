@@ -7,6 +7,7 @@
 #include <netinet/in.h> /* INET constants and stuff */
 #include <arpa/inet.h>  /* IP address conversion stuff */
 #include <netdb.h>      /* gethostbyname */
+#include <string.h>
 
 #define MAXBUF 1024 * 1024
 
@@ -18,7 +19,7 @@ void uppercase(char *p)
 
 void echo(int sd)
 {
-  char bufin[MAXBUF];
+  char bufin[MAXBUF - 3];
   struct sockaddr_in remote;
 
   // printf("waiting.\n");
@@ -32,7 +33,7 @@ void echo(int sd)
   while (1)
   {
     /* read a datagram from the socket (put result in bufin) */
-    int n = recvfrom(sd, bufin, MAXBUF, 0, (struct sockaddr *)&remote, &len);
+    int n = recvfrom(sd, bufin, MAXBUF - 3, 0, (struct sockaddr *)&remote, &len);
 
     if (n < 0)
     {
@@ -44,7 +45,7 @@ void echo(int sd)
       // uppercase(bufin);
       // add index number before sending back
       char newbuf[MAXBUF];
-      sprintf(newbuf, "%d %s\n", index++, bufin);
+      snprintf(newbuf, MAXBUF, "%d %s\n", index++, bufin);
       n = strlen(newbuf) + 1;
       /* Got something, just send it back */
       sendto(sd, newbuf, n, 0, (struct sockaddr *)&remote, len);

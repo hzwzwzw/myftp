@@ -26,7 +26,22 @@ int main(int argc, char **argv)
 		{
 			if (i + 1 < argc && argv[i + 1][0] != '-')
 			{
-				strcpy(rootdir, argv[++i]);
+				char argdir[256];
+				strncpy(argdir, argv[++i], 256);
+				if (argdir[0] != '/')
+				{
+					char tempdir[256];
+					getcwd(tempdir, sizeof(tempdir));
+					strcat(tempdir, "/");
+					strcat(tempdir, argdir);
+					realpath(tempdir, argdir);
+				}
+				if (access(argdir, F_OK) == -1)
+				{
+					printf("Directory %s does not exist.\n", argdir);
+					return 1;
+				}
+				strcpy(rootdir, argdir);
 				strcpy(workdir, rootdir);
 			}
 			else

@@ -179,11 +179,11 @@ void button_connect_clicked()
 
 void button_login_clicked()
 {
-    if (state.sockfd == -1)
-    {
-        error("Please connect to server first.", "", 0);
-        return;
-    }
+    // if (state.sockfd == -1)
+    // {
+    //     error("Please connect to server first.", "", 0);
+    //     return;
+    // }
     const char *username = ui->usernameInput->text().toUtf8().data();
     const char *password = ui->passwordInput->text().toUtf8().data();
     char buf[8192];

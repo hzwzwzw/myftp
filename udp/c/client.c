@@ -48,7 +48,7 @@ int main()
     /* send it to the echo server */
 
     sprintf(buf, "%d", i);
-    size_t buf_len = strlen(buf) + 1;
+    int buf_len = strlen(buf) + 1;
 
     int n_sent = sendto(sk, buf, buf_len, 0,
                         (struct sockaddr *)&server, sizeof(server));
